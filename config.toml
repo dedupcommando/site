@@ -7,7 +7,7 @@
 # /<slug>/ prefix and we keep full control of slugs (/zh-hans/, /pt-br/) and of
 # the hreflang cluster.
 
-base_url = "https://dedupcommando.github.io"
+base_url = "https://dedcom.dequzzy.io"
 title = "DedupCommando"
 description = "Safety-focused Linux CLI and TUI for finding duplicate files and reclaiming storage."
 default_language = "en"

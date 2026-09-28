@@ -117,7 +117,8 @@ fi
 
 echo "== old host only for the APT repository =="
 if [ "$BASE" = "https://$OLD_HOST" ]; then ok "site still served from $OLD_HOST (skipped)"; else
-  left=$(grep -rhoE "$OLD_HOST[^\" <)]*" "$PUB" | grep -v "^$OLD_HOST/apt" | sort -u)
+  # Zola escapes "/" as &#x2F; in code blocks; decode it before telling APT links from the rest.
+  left=$(grep -rhoE "$OLD_HOST[^\" <)]*" "$PUB" | sed 's|&#x2F;|/|g' | grep -v "^$OLD_HOST/apt" | sort -u)
   [ -z "$left" ] && ok "no links to $OLD_HOST outside /apt" || bad "links to the old host: $left"
 fi
 

@@ -1,0 +1,6 @@
+# dedcom2.dequzzy.io was a second copy of the DedupCommando landing page. It is retired: every
+# address moves permanently to the main site. Upload this file as public_html/dedcom2/.htaccess on
+# Hostinger and delete everything else in that folder.
+RewriteEngine On
+RewriteRule ^ru/?(index\.html)?$ https://dedcom.dequzzy.io/ru/ [R=301,L]
+RewriteRule ^ https://dedcom.dequzzy.io/ [R=301,L]
