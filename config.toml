@@ -19,6 +19,9 @@ highlight_code = false
 [extra]
 # The released version is not written here: scripts/sync_docs.py puts it in data/release.json.
 repo_url = "https://github.com/dedupcommando/DedupCommando"
+# Visit counter endpoint. The page shows nothing; the script is served by the site itself
+# (static/assets/goatcounter.v5.js). Empty string = no counter.
+goatcounter = "https://oldman007.goatcounter.com/count"
 # Published locales. `home` is the content path of each locale's home page: the hreflang cluster, the
 # language switcher and x-default (the "en" home) are all built from it.
 locales = [

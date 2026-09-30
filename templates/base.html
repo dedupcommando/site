@@ -59,6 +59,9 @@
   <meta property="article:modified_time" content="{{ page.updated }}">
   {%- endif %}
   <link rel="alternate" type="application/atom+xml" title="DedupCommando release notes" href="{{ get_url(path='@/en/changelog/_index.md') | safe }}atom.xml">
+  {%- if config.extra.goatcounter %}
+  <script data-goatcounter="{{ config.extra.goatcounter | safe }}" async src="{{ get_url(path='assets/goatcounter.v5.js', cachebust=true) | safe }}"></script>
+  {%- endif %}
 
   {%- if not is_home %}
   {%- set n = crumbs | length %}

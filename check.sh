@@ -122,11 +122,16 @@ if [ "$BASE" = "https://$OLD_HOST" ]; then ok "site still served from $OLD_HOST 
   [ -z "$left" ] && ok "no links to $OLD_HOST outside /apt" || bad "links to the old host: $left"
 fi
 
-echo "== no external scripts / CDNs / trackers =="
+echo "== no external scripts / CDNs / ad trackers =="
 ext=$(grep -rhoE '<script[^>]+src="[^"]*"' "$PUB" | sed -E 's/.*src="([^"]*)".*/\1/' | grep -vE "^($BASE/|/)" || true)
 if [ -n "$ext" ]; then bad "external script: $ext"; else ok "only own scripts"; fi
 if grep -rInE 'googleapis|google-analytics|gtag\(|cdn\.|jsdelivr|unpkg|fonts\.(google|gstatic)' "$PUB" 2>/dev/null; then
-  bad "external resource or tracker found"; else ok "no CDNs or trackers"; fi
+  bad "external resource or tracker found"; else ok "no CDNs or ad trackers"; fi
+
+echo "== private visit counter =="
+gc=$(grep -rhoE 'data-goatcounter="[^"]*"' "$PUB" | sort -u)
+if [ "$gc" = 'data-goatcounter="https://oldman007.goatcounter.com/count"' ] && grep -q 'data-goatcounter=' "$PUB/index.html"; then
+  ok "one GoatCounter endpoint, script served by the site"; else bad "unexpected visit counter setup: ${gc:-none}"; fi
 
 echo "== forbidden claims =="
 if grep -rInE 'TrueNAS|ZFS deduplication|Proxmox DedupCommando|production-ready|production-grade' content templates "$PUB" 2>/dev/null; then
