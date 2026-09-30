@@ -86,7 +86,7 @@
 <div id="boot" role="presentation">
   <div class="ln" style="--t:.05s">DEDCOM BIOS v0.9 — Deduplication Environment</div>
   <div class="ln" style="--t:.3s">Memory test ......... 32768 MB <span class="ok">OK</span></div>
-  <div class="ln" style="--t:.65s">Pool tank ........... ONLINE · 6.2T used <span class="ok">OK</span></div>
+  <div class="ln" style="--t:.65s">Pool tank ........... ONLINE <span class="ok">OK</span></div>
   <div class="ln" style="--t:1s">Snapshot safety ..... <span class="ok">ARMED</span></div>
   <div class="ln" style="--t:1.35s">Starting the dedcom 95 desktop …</div>
   <div class="ln hint" style="--t:1.5s">(click or press any key to skip)</div>
@@ -131,15 +131,15 @@
     </header>
     <div class="win-body tight">
       <div class="sunken pad">DedupCommando — a terminal dedup commander
-for Proxmox ZFS pools.
+for ZFS pools on Proxmox VE.
 
 It finds identical files, gathers them into groups
 and gives terabytes back — with a safety snapshot
 before every action.
 
   · one binary, no daemon, over SSH
-  · blake3 + byte-for-byte verify, atomic ops
-  · exercised on a production Proxmox host: 6+ TB
+  · blake3 hashing, re-checked before every change
+  · exercised on a production Proxmox VE host
 
 Double-click the icons to open the sections.</div>
       <div class="btn-row">
@@ -192,17 +192,17 @@ Double-click the icons to open the sections.</div>
         <fieldset class="gb"><legend>Dual-pane TUI</legend>
           <p>Groups on the left, files on the right, all from the keyboard. SSH, tmux, even an IPMI console. First run? The <code>--classic</code> wizard.</p></fieldset>
         <fieldset class="gb"><legend>Snapshot before action</legend>
-          <p>A ZFS snapshot is taken automatically before any delete or hardlink. Undo is one command.</p></fieldset>
+          <p>A ZFS snapshot is taken automatically before any delete, hardlink or reflink. A rollback returns the whole dataset to that moment.</p></fieldset>
         <fieldset class="gb"><legend>Verify, don&rsquo;t trust</legend>
-          <p>blake3, byte-for-byte group compare and a re-hash right before acting. One changed byte cancels it.</p></fieldset>
+          <p>Groups by blake3, and every file is checked again right before a change: a file that changed is left alone. Byte-for-byte compare: <code>--verify</code>.</p></fieldset>
         <fieldset class="gb"><legend>Atomic or nothing</legend>
-          <p>renameat2(RENAME_NOREPLACE) instead of “check, then rename”. No races by construction.</p></fieldset>
+          <p>renameat2(RENAME_NOREPLACE) instead of “check, then rename”: an existing file is never silently overwritten.</p></fieldset>
         <fieldset class="gb"><legend>Idle profile</legend>
-          <p>Scanning yields the disks to VMs and backups. The production host won&rsquo;t notice.</p></fieldset>
+          <p>Scans at the lowest CPU and disk priority (nice 19, ionice idle), so VMs and backups go first.</p></fieldset>
         <fieldset class="gb"><legend>Checkpoints</legend>
           <p>State lives in dedcom.db: interrupt a scan and it resumes where it stopped.</p></fieldset>
         <fieldset class="gb"><legend>One Rust binary</legend>
-          <p>The dedcom file is all there is. No dependencies, daemons or web UI.</p></fieldset>
+          <p>The dedcom file is all there is: no daemon, no web UI. Needs glibc 2.39+ (Debian 13, Proxmox VE 9).</p></fieldset>
         <fieldset class="gb"><legend>Headless for scripts</legend>
           <p>--scan, --stats, --export-csv — for cron and reports.</p></fieldset>
       </div>
@@ -225,7 +225,7 @@ Double-click the icons to open the sections.</div>
           <dt>Type</dt><dd>TUI deduplication utility</dd>
           <dt>Platform</dt><dd>Linux x86-64 / arm64 · OpenZFS ≥ 2.1</dd>
           <dt>Habitat</dt><dd>Proxmox VE (native)</dd>
-          <dt>Hashing</dt><dd>blake3 + byte-for-byte verify</dd>
+          <dt>Hashing</dt><dd>blake3 (byte-for-byte: <code>--verify</code>)</dd>
           <dt>Status</dt><dd>v{{ rel.version }} (beta) · {{ rel.date | truncate(length=4, end="") }}</dd>
         </dl>
       </div>
@@ -322,9 +322,10 @@ Double-click the icons to open the sections.</div>
     <div class="win-body faq">
       <details open>
         <summary>How safe is this on a production host?</summary>
-        <p>Before any destructive action — an automatic ZFS snapshot, re-verification and atomic
-          operations. “Deleted” files go to quarantine. The worst case is a one-command snapshot
-          rollback. The Idle profile never starves VMs of I/O.</p>
+        <p>Before any destructive action — an automatic ZFS snapshot, a fresh check of every file and
+          atomic operations. “Deleted” files go to quarantine. The worst case is rolling a dataset back
+          to its snapshot, which also drops anything written after it. The Idle profile scans at the
+          lowest CPU and disk priority.</p>
       </details>
       <details>
         <summary>Hardlink? What about block cloning?</summary>

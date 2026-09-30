@@ -86,7 +86,7 @@
 <div id="boot" role="presentation">
   <div class="ln" style="--t:.05s">DEDCOM BIOS v0.9 — Deduplication Environment</div>
   <div class="ln" style="--t:.3s">Memory test ......... 32768 MB <span class="ok">OK</span></div>
-  <div class="ln" style="--t:.65s">Pool tank ........... ONLINE · 6,2T used <span class="ok">OK</span></div>
+  <div class="ln" style="--t:.65s">Pool tank ........... ONLINE <span class="ok">OK</span></div>
   <div class="ln" style="--t:1s">Snapshot safety ..... <span class="ok">ARMED</span></div>
   <div class="ln" style="--t:1.35s">Запуск рабочего стола dedcom 95 …</div>
   <div class="ln hint" style="--t:1.5s">(щелчок или любая клавиша — пропустить)</div>
@@ -131,15 +131,15 @@
     </header>
     <div class="win-body tight">
       <div class="sunken pad">DedupCommando — консольный командир дедупликации
-для ZFS-пулов Proxmox.
+для ZFS-пулов на Proxmox VE.
 
 Находит идентичные файлы, собирает их в группы
 и возвращает терабайты — со снапшотом-страховкой
 перед каждым действием.
 
   · один бинарь, без демона, по SSH
-  · blake3 + побайтовая сверка, атомарные операции
-  · обкатка на боевом Proxmox-хосте: 6+ ТБ
+  · хеш blake3, перепроверка перед каждым изменением
+  · обкатка на боевом хосте Proxmox VE
 
 Двойной щелчок по значкам открывает разделы.</div>
       <div class="btn-row">
@@ -192,17 +192,17 @@
         <fieldset class="gb"><legend>Двухпанельный TUI</legend>
           <p>Группы слева, файлы справа, всё с клавиатуры. SSH, tmux, хоть консоль IPMI. Для первого раза — мастер <code>--classic</code>.</p></fieldset>
         <fieldset class="gb"><legend>Снапшот перед действием</legend>
-          <p>ZFS-снапшот создаётся автоматически до удаления или hardlink. Откат — одной командой.</p></fieldset>
+          <p>ZFS-снапшот создаётся автоматически до удаления, hardlink или reflink. Откат возвращает к этому моменту весь датасет.</p></fieldset>
         <fieldset class="gb"><legend>Сверка, а не вера</legend>
-          <p>blake3, побайтовая сверка групп и ре-хеш прямо перед действием. Изменился байт — отмена.</p></fieldset>
+          <p>Группы по blake3, и прямо перед изменением каждый файл проверяется заново: изменившийся файл не трогается. Сверка байт в байт — ключ <code>--verify</code>.</p></fieldset>
         <fieldset class="gb"><legend>Атомарно или никак</legend>
-          <p>renameat2(RENAME_NOREPLACE) вместо «проверил — потом переименовал». Гонок нет по построению.</p></fieldset>
+          <p>renameat2(RENAME_NOREPLACE) вместо «проверил — потом переименовал»: существующий файл никогда не перезаписывается молча.</p></fieldset>
         <fieldset class="gb"><legend>Профиль Idle</legend>
-          <p>Скан уступает диски виртуалкам и бэкапам. Боевой хост не заметит.</p></fieldset>
+          <p>Скан идёт с самым низким приоритетом процессора и дисков (nice 19, ionice idle): виртуалки и бэкапы — первыми.</p></fieldset>
         <fieldset class="gb"><legend>Чекпойнты</legend>
           <p>Состояние в dedcom.db: прервали скан — продолжится с того же места.</p></fieldset>
         <fieldset class="gb"><legend>Один бинарь на Rust</legend>
-          <p>Файл dedcom — и всё. Без зависимостей, демонов и веб-морды.</p></fieldset>
+          <p>Файл dedcom — и всё: без демона и веб-морды. Нужна glibc ≥ 2.39 (Debian 13, Proxmox VE 9).</p></fieldset>
         <fieldset class="gb"><legend>Headless для скриптов</legend>
           <p>--scan, --stats, --export-csv — для cron и отчётов.</p></fieldset>
       </div>
@@ -225,7 +225,7 @@
           <dt>Тип</dt><dd>TUI-утилита дедупликации</dd>
           <dt>Платформа</dt><dd>Linux x86-64 / arm64 · OpenZFS ≥ 2.1</dd>
           <dt>Среда</dt><dd>Proxmox VE (родная)</dd>
-          <dt>Хеш</dt><dd>blake3 + побайтовая сверка</dd>
+          <dt>Хеш</dt><dd>blake3 (байт в байт — <code>--verify</code>)</dd>
           <dt>Статус</dt><dd>v{{ rel.version }} (бета) · {{ rel.date | truncate(length=4, end="") }}</dd>
         </dl>
       </div>
@@ -322,9 +322,10 @@
     <div class="win-body faq">
       <details open>
         <summary>Насколько это безопасно на боевом хосте?</summary>
-        <p>Перед любым деструктивным действием — автоматический ZFS-снапшот, повторная сверка
-          и атомарные операции. «Удалённое» уходит в карантин. Худший сценарий — откат снапшота
-          одной командой. Профиль Idle не отбирает I/O у виртуалок.</p>
+        <p>Перед любым деструктивным действием — автоматический ZFS-снапшот, повторная проверка каждого
+          файла и атомарные операции. «Удалённое» уходит в карантин. Худший сценарий — откат датасета к
+          снапшоту, при котором пропадёт и всё записанное после него. Профиль Idle сканирует с самым
+          низким приоритетом процессора и дисков.</p>
       </details>
       <details>
         <summary>Hardlink? А что с клонированием блоков?</summary>

@@ -137,6 +137,12 @@ echo "== forbidden claims =="
 if grep -rInE 'TrueNAS|ZFS deduplication|Proxmox DedupCommando|production-ready|production-grade' content templates "$PUB" 2>/dev/null; then
   bad "forbidden claim found"; else ok "none"; fi
 
+echo "== promises the program does not keep =="
+# Byte-for-byte group compare is off by default (--verify), a rollback returns the whole dataset, space
+# comes back only after the quarantine and snapshots are cleared, the binary needs glibc 2.39+.
+if grep -rInE 'byte-for-byte (verify|group verify|✓)|verified byte-for-byte|blake3 \+ (bytewise|побайтов)|побайтовая сверка групп|побайтово ✓|сверены побайтово|Undo is one command|one-command snapshot|одной командой|races by construction|Гонок нет|host won.{1,7}t notice|не заметит|never starves|No dependencies|Без зависимостей|Reclaimed [0-9$]|Освобождено [0-9$]|6[.,]2T used|6\+ (TB|ТБ)' templates content static/assets 2>/dev/null; then
+  bad "promise found"; else ok "none"; fi
+
 echo "== arabic RTL =="
 if grep -q '<html lang="ar" dir="rtl">' "$PUB/ar/index.html"; then ok "/ar/ dir=rtl"; else bad "/ar/ not rtl"; fi
 
