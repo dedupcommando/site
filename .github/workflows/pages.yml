@@ -1,5 +1,5 @@
 # Build the landing site with Zola and deploy to GitHub Pages.
-# Lives in the public landing repo (dedupcommando.github.io); not used by the code repo.
+# Lives in the site repo (dedupcommando/site, served at https://dedcom.dequzzy.io/); not used by the code repo.
 name: Deploy landing (GitHub Pages)
 
 on:
