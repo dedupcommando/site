@@ -75,6 +75,10 @@ One file in each group is the **keeper**; the rest become links or go to quarant
 2. **Review** — browse duplicate groups in the multi-panel **commander** (default) or a classic stepwise wizard (`--classic`); mark a keeper and the action for each group. It also finds **"twin folders"** — directory trees whose scanned contents are identical.
 3. **Apply** — review the plan and apply interactively, or save it as a shell script. A **resource governor** (Turbo / Balanced / Idle) sets how hard a scan reads; on a busy host, Idle uses one thread at `nice 19` and `ionice idle`.
 
+![dedcom 0.9.2: the scan form cycling Turbo, Balanced and Idle, a scan of a test ZFS pool, the duplicate groups it found, then the Triage Board](/assets/manual/dedcom-scan-triage.gif)
+
+A scan of a test pool with dedcom 0.9.2 (the scan itself is sped up three times), then the [Triage Board](@/en/manual/09-triage-board.md) sorting files into four receivers.
+
 ## Built for ZFS, runs on Proxmox VE
 
 DedupCommando is designed for ZFS: snapshots, dataset-aware boundaries, and reflink all build on it. It is tested on Proxmox VE 9.1 (OpenZFS 2.3), where ZFS is available out of the box. This is **file-level** deduplication — finding and removing duplicate files — not ZFS's built-in block-level dedup (`zfs set dedup`), and not compression.
