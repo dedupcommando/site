@@ -102,7 +102,7 @@
 
 <main id="desktop" aria-label="dedcom 95 desktop">
 
-  <h1 class="wm">DedupCommando<small>finds identical files on Linux and ZFS and reclaims the space safely · v{{ rel.version }}</small></h1>
+  <h1 class="wm">DedupCommando<small>finds identical files on Linux and reclaims the space safely on ZFS · v{{ rel.version }}</small></h1>
 
   <div id="icons">
     <button class="icon" data-open="demo"><svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><use href="#i-term"/></svg><span>dedcom.exe</span></button>
@@ -134,12 +134,12 @@
 for ZFS pools on Proxmox VE.
 
 It finds identical files, gathers them into groups
-and gives terabytes back — with a safety snapshot
+and reclaims the space — with a safety snapshot
 before every action.
 
   · one binary, no daemon, over SSH
   · blake3 hashing, re-checked before every change
-  · exercised on a production Proxmox VE host
+  · tested on Proxmox VE 9.1 (OpenZFS 2.3)
 
 Double-click the icons to open the sections.</div>
       <div class="btn-row">
@@ -190,7 +190,7 @@ Double-click the icons to open the sections.</div>
     <div class="win-body">
       <div class="gb-grid">
         <fieldset class="gb"><legend>Dual-pane TUI</legend>
-          <p>Groups on the left, files on the right, all from the keyboard. SSH, tmux, even an IPMI console. First run? The <code>--classic</code> wizard.</p></fieldset>
+          <p>Groups on the left, files on the right, all from the keyboard. SSH, tmux, the Proxmox web shell. First run? The <code>--classic</code> wizard.</p></fieldset>
         <fieldset class="gb"><legend>Snapshot before action</legend>
           <p>A ZFS snapshot is taken automatically before any delete, hardlink or reflink. A rollback returns the whole dataset to that moment.</p></fieldset>
         <fieldset class="gb"><legend>Verify, don&rsquo;t trust</legend>
@@ -198,7 +198,7 @@ Double-click the icons to open the sections.</div>
         <fieldset class="gb"><legend>Atomic or nothing</legend>
           <p>renameat2(RENAME_NOREPLACE) instead of “check, then rename”: an existing file is never silently overwritten.</p></fieldset>
         <fieldset class="gb"><legend>Idle profile</legend>
-          <p>Scans at the lowest CPU and disk priority (nice 19, ionice idle), so VMs and backups go first.</p></fieldset>
+          <p>Scans at the lowest CPU and disk priority (nice 19, ionice idle) and asks the disk to let VMs and backups go first.</p></fieldset>
         <fieldset class="gb"><legend>Checkpoints</legend>
           <p>State lives in dedcom.db: interrupt a scan and it resumes where it stopped.</p></fieldset>
         <fieldset class="gb"><legend>One Rust binary</legend>
@@ -223,7 +223,7 @@ Double-click the icons to open the sections.</div>
         <dl>
           <dt>Item</dt><dd>dedcom</dd>
           <dt>Type</dt><dd>TUI deduplication utility</dd>
-          <dt>Platform</dt><dd>Linux x86-64 / arm64 · OpenZFS ≥ 2.1</dd>
+          <dt>Platform</dt><dd>Linux x86-64 / arm64 · OpenZFS (tested: 2.3)</dd>
           <dt>Habitat</dt><dd>Proxmox VE (native)</dd>
           <dt>Hashing</dt><dd>blake3 (byte-for-byte: <code>--verify</code>)</dd>
           <dt>Status</dt><dd>v{{ rel.version }} (beta) · {{ rel.date | truncate(length=4, end="") }}</dd>
@@ -245,17 +245,17 @@ Double-click the icons to open the sections.</div>
       <p class="muted" style="margin-bottom:10px">The safety protocol is built in and cannot be
         switched off — that&rsquo;s why the boxes are greyed out:</p>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Safety snapshot</b>
-        <p>A ZFS snapshot automatically before every action. Seconds on a production pool — and terabytes saved.</p></div>
+        <p>A ZFS snapshot automatically before every action. It keeps the old data until you destroy it.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Re-verification</b>
         <p>A re-hash right before acting. Any mismatch stops it; the group goes back for review.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Atomic operations</b>
-        <p>renameat2(RENAME_NOREPLACE): the race condition is ruled out by the syscall itself.</p></div>
+        <p>renameat2(RENAME_NOREPLACE): no window between checking the target name and the rename.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Quarantine, not the void</b>
         <p>“Deleting” moves files to quarantine. Bring one back precisely, without a full rollback.</p></div>
       <div class="warn"><span class="wi" aria-hidden="true">⚠</span>
         <span>On ZFS a destructive batch cannot run without its snapshot: if the snapshot fails,
         the batch is aborted. An invariant in the code, not a setting. Without ZFS there is no
-        snapshot, so applying actions there is not recommended.</span></div>
+        snapshot, so delete, hardlink and reflink are refused there.</span></div>
       <div class="btn-row"><button class="b95" data-close>OK</button></div>
     </div>
   </section>
@@ -275,9 +275,9 @@ Double-click the icons to open the sections.</div>
           <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
           <tbody>
             <tr><td>OS</td><td>Linux x86-64 or arm64, glibc ≥ 2.39</td></tr>
-            <tr><td>FS</td><td>OpenZFS ≥ 2.1 (tested on 2.4.3)</td></tr>
+            <tr><td>FS</td><td>OpenZFS (tested on 2.3, Proxmox VE 9.1)</td></tr>
             <tr><td>Habitat</td><td>Proxmox VE; any host with ZFS will do</td></tr>
-            <tr><td>Terminal</td><td>any 256-color one, over SSH and in tmux</td></tr>
+            <tr><td>Terminal</td><td>any UTF-8, 256-color one, over SSH and in tmux</td></tr>
             <tr><td>Access</td><td>root on the pool host</td></tr>
           </tbody>
         </table>
@@ -295,13 +295,10 @@ Double-click the icons to open the sections.</div>
 <span class="kw">dedcom</span> --classic            <span class="cm"># step-by-step wizard for the first run</span></pre>
       </div>
 
-      <div class="sunken">
-        <div class="lst-bar"><span>Listing 2 — rehearse first</span>
-          <button class="b95 copy" data-copy="#r-inst-b">copy</button></div>
-        <pre class="lst" id="r-inst-b"><span class="cm"># a disposable loopback pool with duplicates: a risk-free playground</span>
-<span class="kw">./scripts/make-test-pool.sh</span>
-<span class="kw">dedcom</span>                      <span class="cm"># practice, then go production</span></pre>
-      </div>
+      <p class="muted">Rehearse on a throwaway pool first:
+        <a href="https://github.com/dedupcommando/DedupCommando/blob/{{ rel.tag }}/scripts/make-test-pool.sh" target="_blank" rel="noopener">scripts/make-test-pool.sh</a>
+        from the source repository builds one on a file image. It needs <code>DEDCOM_E2E_ROOT</code> and
+        <code>DEDCOM_E2E_OWNER_UID</code>; see the script&rsquo;s header.</p>
 
       <p class="muted" style="margin-top:10px">Other Linux systems with glibc 2.39 or newer: download a
         <a href="https://github.com/dedupcommando/DedupCommando/releases" target="_blank" rel="noopener">release from GitHub</a>,
@@ -330,13 +327,13 @@ Double-click the icons to open the sections.</div>
       <details>
         <summary>Hardlink? What about block cloning?</summary>
         <p>The classic mode is hardlink. Where OpenZFS supports block cloning, reflink is
-          available — files stay independent but share blocks. The result is checked against
-          the actual data placement, not indirect counters.</p>
+          available — files stay independent but share blocks. The project&rsquo;s E2E test proves
+          the sharing by block address (zdb), not by pool counters.</p>
       </details>
       <details>
         <summary>Why a TUI and not a web UI?</summary>
         <p>An extra daemon and an open port on storage cost security. You already have SSH, and
-          dedcom draws its interface in any terminal. For scripting there are headless modes:
+          dedcom draws its interface in any UTF-8, 256-color terminal. For scripting there are headless modes:
           --scan, --stats, --export-csv.</p>
       </details>
       <details>

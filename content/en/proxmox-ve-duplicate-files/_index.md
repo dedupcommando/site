@@ -33,11 +33,11 @@ echo "deb [signed-by=/usr/share/keyrings/dedcom-archive-keyring.gpg] https://ded
 apt update && apt install dedcom
 ```
 
-After that, `apt upgrade` keeps it current. The packages need glibc 2.39 or newer, which means Proxmox VE 9 or later: on Proxmox VE 8 (Debian 12) the install stops on an unmet `libc6` dependency, and building from source is the way there. The [installation chapter](@/en/manual/02-install.md#install-from-the-apt-repository-debian--proxmox-ve) also covers the release tarball and how to [verify it](@/en/verifying-releases.md).
+After that, `apt upgrade` keeps it current. The packages need glibc 2.39 or newer, which means Proxmox VE 9 or later: on Proxmox VE 8 (Debian 12) the install stops on an unmet `libc6` dependency. There, build natively with a Rust toolchain (1.82+) on the host itself; a binary from the maintainers' Docker wrapper (`rust:1.95.0` image) needs a newer glibc and will not run there. The [installation chapter](@/en/manual/02-install.md#install-from-the-apt-repository-debian--proxmox-ve) also covers the release tarball and how to [verify it](@/en/verifying-releases.md).
 
 ## Run it as root, over SSH or in the web shell
 
-Run `dedcom` as root on the host, the Proxmox default. As an unprivileged user it cannot take ZFS snapshots without `zfs allow` or sudo, and without snapshots applying actions is not recommended. It is a terminal program that needs a UTF-8, 256-color terminal, so an SSH session works as well as the Proxmox web shell.
+Run `dedcom` as root on the host, the Proxmox default. As an unprivileged user it cannot take ZFS snapshots without `zfs allow` or sudo, and a batch whose snapshot fails is cancelled before any file is changed. It is a terminal program that needs a UTF-8, 256-color terminal, so an SSH session works as well as the Proxmox web shell.
 
 The web shell (xterm.js) does not pass Shift with F-keys, so press the backtick first: `` ` `` then F9 does what Shift+F9 does. If F11 toggles fullscreen instead of reaching dedcom, press `x` to execute the marked actions ([troubleshooting](@/en/manual/13-troubleshooting.md#shiftf-works-in-a-local-terminal-but-not-in-the-proxmox-web-shell)).
 
@@ -45,7 +45,7 @@ Only one instance writes at a time; a second window can watch with `dedcom --rea
 
 ## Scan gently: the Idle profile
 
-A scan reads every candidate file, and on a pool with running VMs or backups the manual makes the **Idle** profile mandatory. It caps the scan at one read thread, at the lowest CPU and I/O priority — the manual's way to keep a scan from starving your guests:
+A scan reads every candidate file, and on a pool with running VMs or backups the manual makes the **Idle** profile mandatory. It caps the scan at one read thread, at the lowest CPU and I/O priority:
 
 | Profile | Read threads | Priority |
 |---|---|---|
@@ -53,7 +53,7 @@ A scan reads every candidate file, and on a pool with running VMs or backups the
 | Balanced (default) | 2 | default |
 | Idle | 1 | `nice 19` + `ionice idle` |
 
-Press `G` in the scan configuration to cycle Turbo → Balanced → Idle. The profile is saved with the scan, so a resumed scan keeps it, and headless scans reuse the last one you set. If guests still slow down, press Esc: the scan stops after the current chunk, keeps its progress and can resume later ([intensity profiles](@/en/manual/07-scanning.md#intensity-profiles-resource-governor)).
+Press `G` in the scan configuration to cycle Turbo → Balanced → Idle. The profile is saved with the scan, so a resumed scan keeps it; a new headless scan always starts on Balanced. If guests still slow down, press Esc: hashing stops within about a second, and the scan keeps its progress and can resume later ([intensity profiles](@/en/manual/07-scanning.md#intensity-profiles-resource-governor)).
 
 ## What to leave out of a scan
 
@@ -61,7 +61,7 @@ Leave other programs' stores out of the scan roots: a Proxmox Backup Server data
 
 What else the manual says points the same way:
 
-- **Files under active writes cannot be deduplicated.** Revalidation cancels any action whose file changed after the scan, and the manual advises applying in a maintenance window, with write workloads stopped.
+- **Stop the writers first.** Revalidation cancels an action whose file changed before it, but a program that keeps the file open writes on into the original in quarantine; the manual advises applying in a maintenance window, with write workloads stopped.
 - **A hardlink shares every later write.** Both paths are one inode, so a change through either shows in both. If copies are meant to diverge, use reflink or leave them alone.
 - **Delete takes the file off its path.** Use it only when no program expects to find the file there.
 - **No apply during a `zfs send` of the same dataset.** The manual warns that send and receive can conflict with the batch ([what the guardrails do not cover](@/en/manual/03-safety.md#what-the-guardrails-do-not-cover)).
@@ -79,7 +79,7 @@ These are the keys of the default commander interface, as in the [quickstart](@/
 5. **Open the groups.** Press `v` twice in a panel for "groups", largest savings first. Tab to the next panel and press `v` until it shows "group files".
 6. **Mark.** In "group files", put the cursor on the file to keep and press `o`: its folder opens in a third panel, cursor on the file (three panels need a window at least 108 columns wide). Press F7 to make it the keeper. Go back with ←, move to a copy, press `o`, then → and mark it: F5 hardlink, F6 reflink or F8 delete to quarantine. Repeat for each copy ([step 8](@/en/manual/04-quickstart.md#step-8-mark-a-keeper-and-hardlinks)).
 7. **Review.** F11 or `x` opens the confirmation. Check the "By type" line and the listed paths; Tab shows the full shell script, and `S` saves it as a `.sh` file. Enter does nothing here.
-8. **Apply.** `Y` takes the snapshots, then revalidates and applies each action. The Summary lists the rollback command, the quarantine folder and the commands that free the space.
+8. **Apply.** `Y` takes the snapshots, then revalidates and applies each action. The Summary lists the snapshots, the quarantine folder and the commands that free the space.
 
 Hardlink and reflink work only within one dataset; for copies in different datasets, delete to quarantine is the option. `dedcom --classic` runs the same steps as a one-screen-at-a-time wizard — Enter sets the keeper, `h`, `c` and `d` mark, `r` reviews — which also suits terminals without F-keys ([classic browser](@/en/manual/06-classic.md#65-browser--viewing-groups-and-marking-actions)).
 
@@ -100,7 +100,7 @@ dedcom --purge-quarantine --yes        # irreversible: empties every quarantine
 
 ## Scans from cron
 
-`dedcom --scan <path>` runs without the interface, so it fits cron. It only scans; applying is interactive, with `Y` in the confirmation. The manual has a ready cron line with `flock` ([headless](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank)); point it at the path `command -v dedcom` prints, and set Idle once in the interface first.
+`dedcom --scan <path>` runs without the interface, so it fits cron. It only scans; applying is interactive, with `Y` in the confirmation. The manual has a ready cron line with `flock`, `nice` and `ionice` ([headless](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank)); point it at the path `command -v dedcom` prints and keep the `nice -n 19 ionice -c 3`: a new `--scan` always runs on Balanced.
 
 ## Next steps
 

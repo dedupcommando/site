@@ -61,17 +61,17 @@
     sSpeed: 'Скорость', sReclaim: 'Потенциальный возврат',
     logTitle: 'Журнал',
     logs: [
-      'открыт пул tank · датасетов: 14 · снапшот-политика: авто',
+      'открыт пул tank · датасетов: 14 · снапшот: перед каждой партией',
       'чекпойнт восстановлен: продолжаем с 41 %',
-      () => `группа #${fmtI(2984)} подтверждена: 4 × ${fmt1(4.1)} ГиБ (vzdump)`,
+      () => `группа #${fmtI(2984)} подтверждена: 4 × ${fmt1(4.1)} ГиБ (iso)`,
       'чекпойнт сохранён → ~/.local/state/dedcom/dedcom.db',
-      () => `I/O придержан на ${fmt1(2.1)} с: активность VM `,
+      'чтение: 1 поток · nice 19 · ionice idle ',
       () => `группа #${fmtI(3107)} подтверждена: 6 × ${fmt1(2.3)} ГиБ (iso)`,
     ],
     idleTag: '(профиль Idle)',
     scanHint: 'blake3 → кандидаты → группы',
     toGroups: ' — к группам дубликатов ',
-    ftScan: 'dedcom · tank', ftScanR: 'Idle', fbScanL: '/tank · OpenZFS 2.4.3',
+    ftScan: 'dedcom · tank', ftScanR: 'Idle', fbScanL: '/tank · OpenZFS 2.3',
     ckptJust: 'чекпойнт: только что', ckptAgo: 'чекпойнт: 12 с назад',
     gTitle: 'ГРУППЫ ИДЕНТИЧНЫХ ФАЙЛОВ',
     gShown: () => `  ·  показаны 7 из ${fmtI(3107)}`,
@@ -84,7 +84,7 @@
     more: (n) => `… ещё ${n}`,
     keeper: 'эталон — остаётся', others: '   остальные → hardlink',
     verifiedLbl: ' хеш: ', verifiedVal: 'blake3 совпал ✓',
-    spaceAct: ' отметить  ', aAct: ' авто-выбор  ', enterAct: ' действие',
+    spaceAct: ' отметить  ', aAct: ' эталон  ', enterAct: ' план → Y',
     grpOf: (n) => `группа ${n}/7`,
     ftGroups: 'dedcom · группы',
     ftGroupsR: () => `${fmtI(3107)} групп · ${fmt1(96.3)} ГиБ`,
@@ -92,17 +92,17 @@
     stSnap: 'Снапшот', stHash: 'Ре-хеш', stLink: 'Hardlink', stQuar: 'Карантин',
     d2: 'сверка 31 файла перед действием',
     d3: '27 файлов → эталоны, атомарно',
-    d4: 'для удаляемых — не потребовался',
+    d4: '27 оригиналов → карантин',
     stWait: '· ждёт', stRun: 'идёт…',
     r1: () => `✓ готово · ${fmt1(3.4)} с`, r2: '✓ 31/31 совпали', r3: '✓ renameat2',
     freed: () => ` ✔ Готово · ${fmt1(44.3)} ГиБ к возврату `,
     undoLbl: '  откат: ', logLbl: '  журнал: ',
-    escBack: 'Esc — назад · действие идёт в фоне, интерфейс не блокируется',
+    escBack: 'Esc — стоп после текущего действия · снапшот уже сделан',
     modalTitle: 'Дедупликация · 4 группы · 31 файл',
     ftAction: 'dedcom · действие', ftActionR: 'снапшот ✓ · защищено',
-    fbActionR: (v) => `освобождается: ${v} ГиБ`,
-    fkeys: [['1', 'Помощь'], ['2', 'Панели'], ['3', 'Скан'], ['4', 'Группы'],
-            ['5', 'Действие'], ['7', 'Отметить'], ['9', 'Меню'], ['10', 'Выход']],
+    fbActionR: (v) => `после очистки: ${v} ГиБ`,
+    fkeys: [['1', 'Помощь'], ['2', 'Скан'], ['3', 'Файл'], ['4', 'Хеш'], ['5', 'Hard'],
+            ['6', 'Ref'], ['7', 'Эталон'], ['8', 'Удал.'], ['9', 'Меню'], ['11', 'Выполн.']],
     paused: '⏸ пауза', auto: '▶ автопоказ', statics: 'статичные кадры (reduced motion)',
     egg: ['%cdedcom_ %c— спасибо, что заглянули в консоль.',
           '%cСнапшот уже создан. Шутка. Пока что.'],
@@ -118,17 +118,17 @@
     sSpeed: 'Throughput', sReclaim: 'Potential reclaim',
     logTitle: 'Log',
     logs: [
-      'pool tank opened · datasets: 14 · snapshot policy: auto',
+      'pool tank opened · datasets: 14 · snapshot: before every batch',
       'checkpoint restored: resuming from 41 %',
-      () => `group #${fmtI(2984)} confirmed: 4 × ${fmt1(4.1)} GiB (vzdump)`,
+      () => `group #${fmtI(2984)} confirmed: 4 × ${fmt1(4.1)} GiB (iso)`,
       'checkpoint saved → ~/.local/state/dedcom/dedcom.db',
-      () => `I/O held back for ${fmt1(2.1)} s: VM activity `,
+      'reader: 1 thread · nice 19 · ionice idle ',
       () => `group #${fmtI(3107)} confirmed: 6 × ${fmt1(2.3)} GiB (iso)`,
     ],
     idleTag: '(Idle profile)',
     scanHint: 'blake3 → candidates → groups',
     toGroups: ' — view duplicate groups ',
-    ftScan: 'dedcom · tank', ftScanR: 'Idle', fbScanL: '/tank · OpenZFS 2.4.3',
+    ftScan: 'dedcom · tank', ftScanR: 'Idle', fbScanL: '/tank · OpenZFS 2.3',
     ckptJust: 'checkpoint: just now', ckptAgo: 'checkpoint: 12 s ago',
     gTitle: 'IDENTICAL FILE GROUPS',
     gShown: () => `  ·  showing 7 of ${fmtI(3107)}`,
@@ -141,7 +141,7 @@
     more: (n) => `… ${n} more`,
     keeper: 'keeper — stays', others: '   the rest → hardlink',
     verifiedLbl: ' hash: ', verifiedVal: 'blake3 match ✓',
-    spaceAct: ' mark  ', aAct: ' auto-select  ', enterAct: ' act',
+    spaceAct: ' mark  ', aAct: ' keeper  ', enterAct: ' plan → Y',
     grpOf: (n) => `group ${n}/7`,
     ftGroups: 'dedcom · groups',
     ftGroupsR: () => `${fmtI(3107)} groups · ${fmt1(96.3)} GiB`,
@@ -149,17 +149,17 @@
     stSnap: 'Snapshot', stHash: 'Re-hash', stLink: 'Hardlink', stQuar: 'Quarantine',
     d2: 're-check 31 files before acting',
     d3: '27 files → keepers, atomically',
-    d4: 'for deletions — not needed',
+    d4: '27 originals → quarantine',
     stWait: '· queued', stRun: 'running…',
     r1: () => `✓ done · ${fmt1(3.4)} s`, r2: '✓ 31/31 match', r3: '✓ renameat2',
     freed: () => ` ✔ Done · ${fmt1(44.3)} GiB to reclaim `,
-    undoLbl: '  undo: ', logLbl: '  log: ',
-    escBack: 'Esc — back · runs in the background, the UI stays live',
+    undoLbl: '  dataset rollback: ', logLbl: '  log: ',
+    escBack: 'Esc — stop after the current action · snapshot already taken',
     modalTitle: 'Dedup action · 4 groups · 31 files',
     ftAction: 'dedcom · action', ftActionR: 'snapshot ✓ · protected',
-    fbActionR: (v) => `reclaiming: ${v} GiB`,
-    fkeys: [['1', 'Help'], ['2', 'Panes'], ['3', 'Scan'], ['4', 'Groups'],
-            ['5', 'Action'], ['7', 'Mark'], ['9', 'Menu'], ['10', 'Quit']],
+    fbActionR: (v) => `after purge: ${v} GiB`,
+    fkeys: [['1', 'Help'], ['2', 'Scan'], ['3', 'File'], ['4', 'Hash'], ['5', 'Hard'],
+            ['6', 'Ref'], ['7', 'Keep'], ['8', 'Del'], ['9', 'Menu'], ['11', 'Exec']],
     paused: '⏸ paused', auto: '▶ autoplay', statics: 'static frames (reduced motion)',
     egg: ['%cdedcom_ %c— thanks for checking the console.',
           '%cSnapshot already taken. Kidding. For now.'],
@@ -278,28 +278,28 @@
   const SZ = (v, u) => (Number.isInteger(v) ? String(v) : fmt1(v)) + ' ' + (u === 'G' ? L.GiB : L.MiB);
   const GROUPS = [
     { h: '0f3ae89c', n: 6,  size: SZ(2.3, 'G'), save: 11.5, name: 'debian-13.1.iso',
-      files: ['/tank/iso/debian-13.1.iso', '/tank/vm/tpl/debian-13.1.iso',
-              '/tank/share/dist/deb-13.1.iso', '/tank/bak/iso/debian-13.1.iso'], more: 2 },
-    { h: '7be14402', n: 4,  size: SZ(4.1, 'G'), save: 12.3, name: 'vz-104.vma.zst',
-      files: ['/tank/dump/vz104-0601.vma.zst', '/tank/dump/vz104-0608.vma.zst',
-              '/tank/arch/vz104-0525.vma.zst'], more: 1 },
+      files: ['/tank/data/debian-13.1.iso', '/tank/data/tpl/deb-13.1.iso',
+              '/tank/data/dist/deb-13.1.iso', '/tank/data/old/deb-13.1.iso'], more: 2 },
+    { h: '7be14402', n: 4,  size: SZ(4.1, 'G'), save: 12.3, name: 'win2022.iso',
+      files: ['/tank/data/iso/win2022.iso', '/tank/data/dist/win2022.iso',
+              '/tank/data/old/win2022.iso'], more: 1 },
     { h: 'c02d8a77', n: 12, size: SZ(850, 'M'), save: 9.3, name: 'DSC_1041.NEF',
       files: RU
-        ? ['/tank/фото/2024/DSC_1041.NEF', '/tank/фото/exp/DSC_1041.NEF', '/tank/nas-copy/DSC_1041.NEF']
-        : ['/tank/photos/raw/DSC_1041.NEF', '/tank/photos/exp/DSC_1041.NEF', '/tank/nas-copy/DSC_1041.NEF'],
+        ? ['/tank/data/фото/DSC_1041.NEF', '/tank/data/exp/DSC_1041.NEF', '/tank/data/nas/DSC_1041.NEF']
+        : ['/tank/data/raw/DSC_1041.NEF', '/tank/data/exp/DSC_1041.NEF', '/tank/data/nas/DSC_1041.NEF'],
       more: 9 },
     { h: '33aae0b5', n: 9,  size: SZ(1.4, 'G'), save: 11.2, name: 'office-2024.iso',
-      files: ['/tank/share/office-2024.iso', '/tank/soft/office-2024.iso',
-              '/tank/bak/office-2024.iso'], more: 6 },
+      files: ['/tank/data/office-2024.iso', '/tank/data/soft/office24.iso',
+              '/tank/data/old/office24.iso'], more: 6 },
     { h: '91cf5dd0', n: 31, size: SZ(120, 'M'), save: 3.6, name: RU ? 'договор.pdf' : 'contract.pdf',
       files: RU
-        ? ['/tank/docs/сканы/договор.pdf', '/tank/docs/2024/договор.pdf', '/tank/mail/attach/договор.pdf']
-        : ['/tank/docs/scans/contract.pdf', '/tank/docs/2024/contract.pdf', '/tank/mail/att/contract.pdf'],
+        ? ['/tank/data/сканы/договор.pdf', '/tank/data/2024/договор.pdf', '/tank/data/mail/договор.pdf']
+        : ['/tank/data/scans/contract.pdf', '/tank/data/2024/contract.pdf', '/tank/data/mail/contract.pdf'],
       more: 28 },
     { h: 'b7e01284', n: 3,  size: SZ(640, 'M'), save: 1.3, name: 'configs-bak.tar',
-      files: ['/tank/etc-bak/configs-bak.tar', '/tank/old/configs-bak.tar'], more: 1 },
+      files: ['/tank/data/configs-bak.tar', '/tank/data/old/configs.tar'], more: 1 },
     { h: 'ee407b19', n: 5,  size: SZ(96, 'M'), save: 0.4, name: 'linux-6.12.tar',
-      files: ['/tank/src/linux-6.12.tar.xz', '/tank/mirror/linux-6.12.tar.xz'], more: 3 },
+      files: ['/tank/data/linux-6.12.tar.xz', '/tank/data/src/linux.tar.xz'], more: 3 },
   ];
   const MARK_N = 4;
   const MARK_SAVE = GROUPS.slice(0, MARK_N).reduce((s, g) => s + g.save, 0);  // 44,3
@@ -417,8 +417,8 @@
 
     rows.push(blank());
     rows.push(cols2(
-      [R('Space', 't-fbtn'), R(L.spaceAct, 't-dim'), R('a', 't-fbtn'), R(L.aAct, 't-dim'),
-       R('Enter', markedN === MARK_N ? 't-inv' : 't-fbtn'), R(L.enterAct, markedN === MARK_N ? 't-grn' : 't-dim'),
+      [R('Space', 't-fbtn'), R(L.spaceAct, 't-dim'), R('F7', 't-fbtn'), R(L.aAct, 't-dim'),
+       R('F11', markedN === MARK_N ? 't-inv' : 't-fbtn'), R(L.enterAct, markedN === MARK_N ? 't-grn' : 't-dim'),
        R(markedN === MARK_N && tick % 8 < 4 ? ' ▌' : '  ', 't-grn')],
       [R(L.grpOf(Math.min(sel + 1, 7)), 't-dim')]));
 
@@ -437,7 +437,7 @@
 
     const m = [];
     m.push([]);
-    m.push([R('  1  ', 't-dim'), R(padE(L.stSnap, 11)), R(padE('tank@dedcom-20260807-1402', 33), 't-txt'),
+    m.push([R('  1  ', 't-dim'), R(padE(L.stSnap, 11)), R(padE('tank/data@dedcom-20260807-1402', 33), 't-txt'),
             ...status(sSnap, [R(lstr(L.r1), 't-grn')])]);
     m.push([R('  2  ', 't-dim'), R(padE(L.stHash, 11)), R(padE(L.d2, 33), 't-txt'),
             ...status(sHash, [R(L.r2, 't-grn')]),
@@ -445,12 +445,12 @@
     m.push([R('  3  ', 't-dim'), R(padE(L.stLink, 11)), R(padE(L.d3, 33), 't-txt'),
             ...status(sLink, [R(L.r3, 't-grn')])]);
     m.push([R('  4  ', 't-dim'), R(padE(L.stQuar, 11)), R(padE(L.d4, 33), 't-txt'),
-            ...status(sQuar, [R('—', 't-dim')])]);
+            ...status(sQuar, [R('✓', 't-grn')])]);
     m.push([]);
     m.push([R('  ['), ...bar(52, p), R(']  '), R(padS(Math.round(p * 100) + ' %', 5), 't-cyan')]);
     m.push([]);
     m.push(ms > 5300 ? [R(' '), R(lstr(L.freed), 't-inv')] : []);
-    m.push(ms > 5650 ? [R(L.undoLbl, 't-dim'), R('zfs rollback tank@dedcom-20260807-1402', 't-amb')] : []);
+    m.push(ms > 5650 ? [R(L.undoLbl, 't-dim'), R('zfs rollback tank/data@dedcom-20260807-1402', 't-amb')] : []);
     m.push(ms > 5950 ? [R(L.logLbl, 't-dim'), R('~/.local/state/dedcom/dedcom.log', 't-txt')] : []);
     m.push([]);
 

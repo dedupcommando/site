@@ -23,7 +23,7 @@ DedupCommando works one level up, with file operations — unlink, link, clone �
 | | `dedup=on` | DedupCommando |
 |---|---|---|
 | When it runs | Inline, on every write | When you scan, review and apply a plan |
-| What it matches | Identical blocks | Whole files, byte for byte |
+| What it matches | Identical blocks | Whole files, by size and BLAKE3 hash (`--verify`: byte by byte) |
 | Data already on the pool | Left as it is; only new writes are deduplicated | What it works on |
 | Memory | A pool-wide table, used on every write and free | Only during a scan: about 2.5 KiB per hashed file while grouping, then released |
 | Partly identical files | Identical blocks inside them are found | Not found |
@@ -31,19 +31,19 @@ DedupCommando works one level up, with file operations — unlink, link, clone �
 
 ## What offline, file-level means
 
-**Offline.** No daemon, watch mode or inotify hook runs in the background. You start a scan yourself, or from cron with `--scan`, and no file is touched until you confirm a batch. Scans resume after an interruption, and a hash cache lets repeat scans skip unchanged files.
+**Offline.** No daemon, watch mode or inotify hook runs in the background. You start a scan yourself, or from cron with `--scan`, and no file is changed until you confirm a batch. Scans resume after an interruption, and a hash cache lets repeat scans skip unchanged files.
 
-**File-level.** Each candidate is hashed whole with BLAKE3 (`--verify` adds a byte-by-byte comparison), identical files form a group, and one file per group is the keeper. There is no fuzzy matching. Files under 4096 bytes are skipped by default, and `.zfs` snapshot directories and the quarantine are never scanned ([scanning](@/en/manual/07-scanning.md#permanent-exclusions)). Groups are ranked by the space they would free; duplicate folders ("twin folders") show up too.
+**File-level.** Each candidate is hashed whole with BLAKE3 (`--verify` adds a byte-by-byte comparison), identical files form a group, and one file per group is the keeper. There is no fuzzy matching. Files under 4096 bytes are always skipped, and `.zfs` snapshot directories and the quarantine are never scanned ([scanning](@/en/manual/07-scanning.md#permanent-exclusions)). Groups are ranked by the space they would free; duplicate folders ("twin folders") show up too.
 
 ## Three ways to reclaim space
 
-Mark one keeper per group with F7, then an action on each copy you want to reclaim. Without a keeper, the actions are ignored.
+Mark one keeper per group with F7, then an action on each copy you want to reclaim. A group with marks but no keeper stops the whole plan.
 
 - **Delete to quarantine (F8).** The copy moves to `.dedcom-quarantine/<timestamp>/` at the root of its dataset, keeping its owner, permissions and xattrs; nothing stays at the old path. The keeper can be anywhere. See [Delete](@/en/manual/08-actions.md#81-delete--move-to-quarantine).
 - **Hardlink (F5).** The path becomes another name for the keeper's inode, so it shows the keeper's owner, permissions, ACL and xattrs, and a write through either path is seen by both. Same dataset only. See [Hardlink](@/en/manual/08-actions.md#82-hardlink--a-shared-inode-to-the-keeper).
 - **Reflink (F6).** A new inode that shares the keeper's data blocks through ZFS block cloning. dedcom writes the replaced file's owner, mode, ACL, xattrs and timestamps onto the clone before publishing it, or cancels the action if it cannot. Later edits to either copy are copy-on-write. Same dataset only, like a hardlink: each ZFS dataset is a separate filesystem. See [Reflink](@/en/manual/08-actions.md#83-reflink--an-independent-inode-with-shared-blocks).
 
-For both link types, the replacement is built under a temporary name, the original moves into the quarantine, and the replacement takes over the path; if that step fails, the original is put back ([atomic publication](@/en/manual/08-actions.md#85-what-hardlink-and-reflink-share--atomic-publication)). In the project's acceptance test on scratch pools with OpenZFS 2.3.4 and 2.4.3, a reflinked file kept mode 0600, a non-root owner and a user xattr on its own inode while sharing the keeper's blocks.
+For both link types, the replacement is built under a temporary name, the original moves into the quarantine, and the replacement takes over the path; if that step fails, the original is put back, or, if its path was taken meanwhile, it stays in the quarantine and the summary names it ([atomic publication](@/en/manual/08-actions.md#85-what-hardlink-and-reflink-share--atomic-publication)). In the project's acceptance test (`scripts/e2e-g5.sh`) on a scratch pool, a reflinked file kept mode 0600, a non-root owner and a user xattr on its own inode while sharing the keeper's blocks.
 
 No action frees space at once: the originals wait in the quarantine, and the batch's snapshot still holds their blocks. [Hardlink vs reflink](@/en/hardlink-vs-reflink/_index.md) goes deeper on the two link types.
 
@@ -60,7 +60,7 @@ No action frees space at once: the originals wait in the quarantine, and the bat
 - ZFS, with `zfs` in `PATH`. dedcom is typically run as root, to take snapshots and scan outside your home directory.
 - For reflink: on the host, OpenZFS 2.2.1 or newer with the module parameter `zfs_bclone_enabled` set to 1; on the pool, `feature@block_cloning` enabled or active (`zpool get feature@block_cloning <pool>`). The scan configuration header shows `block cloning: supported=… enabled=…` and whether reflink is available. Without them, delete and hardlink still work, and a plan with a reflink is refused before its confirmation opens (troubleshooting: [the host](@/en/manual/13-troubleshooting.md#cannot-reflink-on-this-host-n-marks--needs-openzfs-221-or-newer-with-zfs_bclone_enabled1-mark-hardlink-or-delete-or-unmark-first-), [the pool](@/en/manual/13-troubleshooting.md#cannot-reflink-on-pool-pool-n-marks--its-block_cloning-feature-is-disabled-mark-hardlink-or-delete-or-unmark-first-)).
 
-On other filesystems a scan runs, but without snapshots applying actions is not recommended.
+On other filesystems a scan runs, but delete, hardlink and reflink are refused: dedcom acts only where it can take a ZFS snapshot first.
 
 ## Checking that space came back
 
@@ -73,18 +73,18 @@ dedcom --purge-quarantine --yes        # irreversible: deletes every quarantine,
 zfs destroy tank@dedcom-<timestamp>    # irreversible: one per dataset in the batch
 ```
 
-Until then, `zfs rollback` to the batch's snapshot undoes it for the whole dataset, including anything written since, and a single file comes back with an `mv` out of the quarantine ([recovery](@/en/safety-model.md#recovery)). Space saved by reflinks shows in the pool's allocation rather than in a dataset's used space, and in the project's tests it took over a minute to appear.
+Until then, `zfs rollback` to the batch's snapshot undoes it for the whole dataset, including anything written since, and a single file comes back with an `mv` out of the quarantine ([recovery](@/en/safety-model.md#recovery)). Space saved by reflinks shows in the pool's allocation rather than in a dataset's used space.
 
 ## FAQ
 
 **Does it find files that are only partly identical?**
-No. It matches whole files, byte for byte, by BLAKE3 hash. Blocks shared between otherwise different files are what `dedup=on` catches and a file-level tool does not.
+No. It matches whole files by size and BLAKE3 hash (`--verify` adds a byte-by-byte compare). Blocks shared between otherwise different files are what `dedup=on` catches and a file-level tool does not.
 
 **Can a reflink join files in two datasets of the same pool?**
 No. dedcom clones within one dataset, as with a hardlink, because every ZFS dataset is a separate filesystem. For copies in different datasets, delete to quarantine is the way to reclaim the space.
 
 **Do reflink savings survive `zfs send | zfs recv`?**
-Not in the project's test with OpenZFS 2.4.3: after a reflink pass the source pool held 926.1 MiB, while the receiving pool took 1285.7 MiB, about the size before the pass. Plan the receiving side for the full, undeduplicated size.
+Not in the project's own test: the receiving pool took about the size before the reflink pass. Plan the receiving side for the full, undeduplicated size.
 
 ## Next steps
 

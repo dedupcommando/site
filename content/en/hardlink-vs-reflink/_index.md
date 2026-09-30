@@ -18,7 +18,7 @@ On Linux, a file is an inode: a record of its owner, mode, timestamps, link coun
 
 To replace duplicate files with hard links therefore means:
 
-- **One copy of the data.** In a group of N identical files, linking every copy to the one you keep, the keeper, frees the space of N−1 files once the replaced originals are purged.
+- **One copy of the data.** In a group of N identical files, linking every copy to the one you keep, the keeper, frees the space of N−1 files once the replaced originals are purged and the batch snapshot is destroyed.
 - **One set of metadata.** Owner, permissions, ACLs, extended attributes and timestamps are the same at every name.
 - **One file to edit.** A write, `chmod` or `chown` through any name shows through all of them.
 - **One filesystem.** A hardlink cannot cross filesystems, and every ZFS dataset is a separate filesystem, so both names must be in one dataset.
@@ -33,11 +33,11 @@ A reflink is a copy that shares storage. The new file has its own inode, and so 
 
 On ZFS, reflinks come from the `block_cloning` pool feature, which lets several files reference one block. DedupCommando needs OpenZFS 2.2.1 or newer with the module parameter `zfs_bclone_enabled` set to 1, and the pool's `feature@block_cloning` enabled or active; it reads both once, at startup. A plan with a reflink that the host or the pool cannot make is refused before its confirmation opens, with `cannot reflink on this host …` or `cannot reflink on pool <pool> …`, and the marks stay. The scan configuration header shows `block cloning: supported=… enabled=…`.
 
-**A reflink, like a hardlink, stays inside one dataset.** OpenZFS can clone blocks between datasets through `copy_file_range(2)` under some conditions, but DedupCommando clones with the `FICLONE` ioctl, which Linux accepts only within one mounted filesystem. Each ZFS dataset is a filesystem of its own, so the keeper and the duplicate must share a dataset for either action; otherwise the clone fails and the target stays as it was. The difference between the two actions is a shared inode versus shared blocks, not where they work.
+**A reflink, like a hardlink, stays inside one dataset.** OpenZFS can clone blocks between datasets through `copy_file_range(2)` under some conditions, but DedupCommando clones with the `FICLONE` ioctl, which Linux accepts only within one mounted filesystem. Each ZFS dataset is a filesystem of its own, so the keeper and the duplicate must share a dataset for either action; otherwise the plan is refused before any snapshot, and the target stays as it was. The difference between the two actions is a shared inode versus shared blocks, not where they work.
 
 ## What DedupCommando does for each action
 
-In each group of identical files you mark one **keeper** (F7), and each other file can get **hardlink** (F5), **reflink** (F6) or **delete** (F8). A group without a keeper is left alone. Nothing changes until you review the plan with F11 and press Y. In every batch:
+In each group of identical files you mark one **keeper** (F7), and each other file can get **hardlink** (F5), **reflink** (F6) or **delete** (F8). A group with marks but no keeper stops the whole plan until you pick one. Nothing changes until you review the plan with F11 and press Y. In every batch:
 
 - Before the first action, every dataset the batch touches is snapshotted. If any snapshot fails, the whole batch is aborted.
 - Right before each action, the target and the keeper are checked against the scan: symlink and size every time, content by hash (by default once per batch, with a `stat` check between actions). A mismatch cancels only that action ([revalidation](@/en/manual/08-actions.md#86-revalidation--the-final-check-before-each-action)).
@@ -47,7 +47,7 @@ In each group of identical files you mark one **keeper** (F7), and each other fi
 
 The link is built under a temporary name next to the target, the original moves to quarantine, and the link is published into the freed name with `renameat2(RENAME_NOREPLACE)`. If that last step fails, the original is put back automatically.
 
-Afterwards the path *is* the keeper's inode. Its owner, permissions, ACL and extended attributes are the keeper's, and so are its timestamps, which live in the same inode. The duplicate's own metadata is not merged: it survives only on the original in quarantine, until the quarantine is purged. Files in different datasets fail with `cross-dataset hardlink is impossible — files are in different datasets`. Manual: [hardlink](@/en/manual/08-actions.md#82-hardlink--a-shared-inode-to-the-keeper), [atomic publication](@/en/manual/08-actions.md#85-what-hardlink-and-reflink-share--atomic-publication).
+Afterwards the path *is* the keeper's inode. Its owner, permissions, ACL and extended attributes are the keeper's, and so are its timestamps, which live in the same inode. The duplicate's own metadata is not merged: it survives only on the original in quarantine, until the quarantine is purged. Files in different datasets are refused when the plan is built, before any snapshot: `cannot hardlink or reflink across datasets (N marks) — …`. Manual: [hardlink](@/en/manual/08-actions.md#82-hardlink--a-shared-inode-to-the-keeper), [atomic publication](@/en/manual/08-actions.md#85-what-hardlink-and-reflink-share--atomic-publication).
 
 ### Reflink (F6)
 

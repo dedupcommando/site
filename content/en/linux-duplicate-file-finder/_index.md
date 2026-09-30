@@ -5,10 +5,10 @@ template = "home.html"
 [extra]
 lang = "en"
 dir = "ltr"
-h1 = "Find and delete duplicate files on Linux, safely"
+h1 = "Find duplicate files on Linux, delete them safely on ZFS"
 +++
 
-DedupCommando (command `dedcom`) is a duplicate file finder for Linux, with a multi-panel terminal interface and a headless mode for scripts and cron. It finds files that are **byte-for-byte identical**, whatever their names, and helps you reclaim the space: move the copies to a quarantine, or replace them with hardlinks or reflinks. It is built for ZFS, where every batch of changes runs under a snapshot.
+DedupCommando (command `dedcom`) is a duplicate file finder for Linux, with a multi-panel terminal interface and a headless mode for scripts and cron. It finds files that are **byte-for-byte identical**, whatever their names, and helps you reclaim the space: move the copies to a quarantine, or replace them with hardlinks or reflinks. It is built for ZFS and changes files only there, each batch under a snapshot.
 
 DedupCommando v{{ version() }} is beta software that changes real files. Read the [safety model](@/en/safety-model.md) before applying anything, and keep backups.
 
@@ -17,20 +17,20 @@ DedupCommando v{{ version() }} is beta software that changes real files. Read th
 To find duplicate files on Linux, a scan runs in three phases and keeps its results in an SQLite database, `dedcom.db`:
 
 1. **Walk.** Traverse the roots you chose, `lstat` every entry and record the file list: minutes per million files.
-2. **Hash.** Read the files and compute a **BLAKE3** hash of their content. On hard disks, files are read in `(device, inode)` order, which cut cold-scan time by 21% on a two-HDD pool. This is the long phase: hours for two million files on hard disks.
+2. **Hash.** Read the files and compute a **BLAKE3** hash of their content. Files are read in `(device, inode)` order, which cut cold-scan time by 21% on a two-HDD pool. This is the long phase: hours for two million files on hard disks.
 3. **Group.** Collect files with the same hash into duplicate groups, and build directory signatures for twin folders. Seconds to minutes, with a temporary memory peak of about 2.5 KiB per hashed file. Before this phase `dedcom` compares its forecast with free RAM; `--merkle-dirs` brings the peak down to tens or hundreds of MB.
 
 Matching is exact: the same BLAKE3 hash, with no fuzzy or similar-image matching. For an extra check, `--verify` compares each group byte by byte after hashing, which reads every file twice. A file that fails to read is not counted as a duplicate.
 
-By default, files smaller than 4096 bytes are skipped, and `--include-ext jpg,heic` limits a scan to some extensions. ZFS snapshot directories (`.zfs`) and DedupCommando's own quarantine are always skipped. Results are sorted by the space each group would free, and files that are already hardlinks of one another count once. More in the [scanning chapter](@/en/manual/07-scanning.md).
+Files smaller than 4096 bytes are always skipped (the limit is fixed in code), and `--include-ext jpg,heic` limits a scan to some extensions. ZFS snapshot directories (`.zfs`) and DedupCommando's own quarantine are always skipped. Results are sorted by the space each group would free, and files that are already hardlinks of one another count once. More in the [scanning chapter](@/en/manual/07-scanning.md).
 
 ## Resumable scans and the hash cache
 
 Walking and hashing save progress to `dedcom.db` as they go, hashes after every 64 files. After Esc, a reboot or a power cut, the next start offers to resume where the scan stopped. Only grouping starts over, from the saved hashes. A resume needs the same set of roots and keeps the settings stored with the scan ([resume](@/en/manual/07-scanning.md#resume--continue-an-unfinished-scan)).
 
-On a repeat scan, a file whose device, inode, size and mtime are unchanged takes its hash from the cache instead of being read again: tens of seconds per million files. If some program changes file content without updating mtime, `--no-hash-reuse` re-hashes everything ([hash cache](@/en/manual/07-scanning.md#hash-cache-hash_cache)).
+On a repeat scan, a file at the same path whose size, mtime and ctime are unchanged takes its hash from the cache instead of being read again: tens of seconds per million files. A renamed or moved file is read again, and `--no-hash-reuse` re-hashes everything ([hash cache](@/en/manual/07-scanning.md#hash-cache-hash_cache)).
 
-The database lives in `~/.local/state/dedcom/`, and `--state-dir` moves it. One scan of 2.2 million files takes roughly 200–400 MiB.
+The database lives in `~/.local/state/dedcom/`, and `--state-dir` moves it; on large pools it can grow to hundreds of MB.
 
 ## Two interfaces and an observer mode
 
@@ -57,11 +57,11 @@ Exit codes: 0 success, 1 runtime error, 2 bad arguments. Headless mode never pro
 A nightly scan from cron:
 
 ```sh
-# /etc/cron.d/dedcom — every night at 02:00
-0 2 * * * root flock -n /var/lock/dedcom.scan /usr/local/bin/dedcom --scan /tank >> /var/log/dedcom-scan.log 2>&1
+# /etc/cron.d/dedcom — every night at 02:00; the path is what `command -v dedcom` prints
+0 2 * * * root flock -n /var/lock/dedcom.scan nice -n 19 ionice -c 3 /usr/bin/dedcom --scan /tank >> /var/log/dedcom-scan.log 2>&1
 ```
 
-Headless `--scan` uses the intensity profile of the last scan configuration, Balanced by default. Set **Idle** (one thread, `nice 19`, `ionice idle`) once in the interface and start a scan with it, so nightly scans do not slow down VMs or backups ([cron example](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank)).
+Headless `--scan` has no profile flag: every new scan runs on Balanced (two reading threads, normal priority), and only a resume keeps its own profile. On a live host, the `nice -n 19 ionice -c 3` in the line above gives it Idle's priorities from outside ([cron example](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank)).
 
 ## Delete duplicate files safely
 
@@ -71,11 +71,11 @@ Finding duplicates only reads. Files change only when you mark them and confirm 
 
 ## On ext4, XFS and Btrfs
 
-On ext4, XFS or Btrfs the walk and hash run as usual, so you can find duplicates and export a report there. Applying changes outside ZFS is not recommended, because there is no snapshot to roll back to. Delete can also cancel with `target file's dataset could not be determined` when it cannot tell which ZFS dataset a file is on. A script of your own built from the CSV skips DedupCommando's checks and snapshot.
+On ext4, XFS or Btrfs the walk and hash run as usual, so you can find duplicates and export a report there. Applying changes outside ZFS is refused, because there is no snapshot to roll back to: delete, hardlink and reflink are cancelled with `target file's dataset could not be determined …`. A script of your own built from the CSV skips DedupCommando's checks and snapshot.
 
 ## Install
 
-DedupCommando runs on Linux (x86_64 or aarch64, kernel 3.15 or newer). The pre-built packages need glibc 2.39 or newer: Debian 13, Ubuntu 24.04, Proxmox VE 9 or later. ZFS with `zfs` in `PATH` is strongly recommended, and `dedcom` typically runs as root. On Debian-family systems, install from the signed APT repository:
+DedupCommando runs on Linux (x86_64 or aarch64, kernel 3.15 or newer). The pre-built packages need glibc 2.39 or newer: Debian 13, Ubuntu 24.04, Proxmox VE 9 or later. ZFS with `zfs` in `PATH` is required for any change (elsewhere dedcom only scans), and `dedcom` typically runs as root. On Debian-family systems, install from the signed APT repository:
 
 ```sh
 # as root (Proxmox default); on non-root Debian run: sudo -i
@@ -86,7 +86,7 @@ echo "deb [signed-by=/usr/share/keyrings/dedcom-archive-keyring.gpg] https://ded
 apt update && apt install dedcom
 ```
 
-On other distributions, use the release tarball and [verify it](@/en/verifying-releases.md) first.
+On other distributions with glibc 2.39 or newer, use the release tarball and [verify it](@/en/verifying-releases.md) first; on older ones, build natively with a Rust toolchain (1.82+).
 
 ## Your first scan in five minutes
 
@@ -95,10 +95,10 @@ These steps follow the [quickstart chapter](@/en/manual/04-quickstart.md). The f
 1. Run `dedcom`. On the first start, tick the notice with Space and press Enter.
 2. Press **F9** and choose "Configure and start a scan…", or press Shift+F9.
 3. Mark the roots with Space. If the host runs VMs or backups, press **G** until the profile reads Idle. Press **S** to start.
-4. Wait for the three phases. Esc stops after the current chunk, and the next start offers to resume. On two hard disks, hashing in Idle runs at about 50–100 MiB/s.
+4. Wait for the three phases. Esc stops hashing within about a second, even mid-file, and the next start offers to resume. On two hard disks, hashing in Idle runs at about 50–100 MiB/s.
 5. In the active panel, press **v** until it shows "groups", largest savings first. Press Tab, then **v** until the next panel shows "group files".
 6. Put the cursor on the file to keep, press **o** to open it in a files panel, and mark it as the keeper with **F7**. Open each copy the same way and mark it **F5** (hardlink), **F6** (reflink) or **F8** (delete).
-7. Press **F11** (or x). Check the "By type" line and the listed paths; S saves the plan as a shell script for your records. Press **Y** to apply: `Y` re-checks each file's content right before acting, while a saved script checks only inode, size and times.
+7. Press **F11** (or x). Check the "By type" line and the listed paths; S saves the plan as a shell script for your records. Press **Y** to apply: `Y` re-hashes each file right before its action (the keeper on first use, then by stat), and a saved script compares each file with its keeper byte for byte.
 8. The summary names the snapshot and the quarantine. After a week or two of normal use, reclaim the space:
 
 ```sh

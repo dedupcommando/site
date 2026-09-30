@@ -12,7 +12,7 @@ short_title = "Docs"
 
 **Beta — v{{ version() }}.** DedupCommando performs destructive operations (delete, hardlink, reflink) on real files. Read the [safety guide](@/en/safety-model.md) before applying anything, and keep backups.
 
-DedupCommando is a Linux terminal tool (CLI and TUI) that finds **byte-for-byte identical files and whole duplicate folders**, and reclaims the space they waste — built for **ZFS** pools, including storage hosted on Proxmox VE systems. Data safety comes first: every destructive batch runs under a ZFS snapshot, "deleted" files are moved to a quarantine instead of being unlinked, and content is re-validated immediately before each action.
+DedupCommando is a Linux terminal tool (CLI and TUI) that finds **byte-for-byte identical files**, shows **whole duplicate folders**, and reclaims the space the duplicate files waste — built for **ZFS** pools, including storage hosted on Proxmox VE systems. Data safety comes first: every destructive batch runs under a ZFS snapshot, "deleted" files are moved to a quarantine instead of being unlinked, and content is re-validated immediately before each action.
 
 ## Install
 
@@ -28,9 +28,9 @@ DedupCommando is a Linux terminal tool (CLI and TUI) that finds **byte-for-byte 
 2. **Release binary (any Linux, glibc ≥ 2.39)** — download the tarball for your architecture (amd64 / arm64) from [GitHub Releases](https://github.com/dedupcommando/DedupCommando/releases), [verify it](@/en/verifying-releases.md), then:
    ```sh
    tar xzf dedcom-<version>-<triple>.tar.gz
-   install -m 755 dedcom /usr/local/bin/dedcom
+   install -m 755 dedcom-<version>-<triple>/dedcom /usr/local/bin/dedcom
    ```
-3. **From source** — a Docker-based build, no local Rust toolchain required (see [CONTRIBUTING](https://github.com/dedupcommando/DedupCommando/blob/main/CONTRIBUTING.md)).
+3. **From source** — on an older system such as Proxmox VE 8 / Debian 12, build natively with a Rust toolchain (1.82+) on that system; a binary from the maintainers' Docker wrapper (`rust:1.95.0` image) needs a newer glibc and will not run there (see [CONTRIBUTING](https://github.com/dedupcommando/DedupCommando/blob/main/CONTRIBUTING.md)).
 
 Cargo (`cargo install dedcom`) is **planned — not yet available**; for now use APT, the release binary, or build from source. The [installation chapter](@/en/manual/02-install.md) of the manual covers every option in detail.
 
@@ -73,18 +73,18 @@ One file in each group is the **keeper**; the rest become links or go to quarant
 
 1. **Scan** — walk your chosen roots, hash candidates with **BLAKE3** (with an optional byte-for-byte re-compare), and group identical files. Scans are resumable and cached for near-instant re-runs.
 2. **Review** — browse duplicate groups in the multi-panel **commander** (default) or a classic stepwise wizard (`--classic`); mark a keeper and the action for each group. It also finds **"twin folders"** — directory trees whose scanned contents are identical.
-3. **Apply** — review the plan and apply interactively, or save it as a shell script. A **resource governor** (Turbo / Balanced / Idle) keeps a scan from starving VMs or backups on a busy host.
+3. **Apply** — review the plan and apply interactively, or save it as a shell script. A **resource governor** (Turbo / Balanced / Idle) sets how hard a scan reads; on a busy host, Idle uses one thread at `nice 19` and `ionice idle`.
 
 ## Built for ZFS, runs on Proxmox VE
 
 DedupCommando is designed for ZFS: snapshots, dataset-aware boundaries, and reflink all build on it. It is tested on Proxmox VE 9.1 (OpenZFS 2.3), where ZFS is available out of the box. This is **file-level** deduplication — finding and removing duplicate files — not ZFS's built-in block-level dedup (`zfs set dedup`), and not compression.
 
-> On non-ZFS filesystems scanning still works, but there is no snapshot safety, so applying actions is not recommended there.
+> On non-ZFS filesystems scanning still works, but delete, hardlink and reflink are refused: dedcom acts only where it can take a ZFS snapshot first.
 
 ## Requirements
 
 - **Linux**, kernel ≥ 3.15, x86_64 or aarch64; the pre-built packages need glibc ≥ 2.39 (Debian 13, Ubuntu 24.04, Proxmox VE 9).
-- **ZFS strongly recommended** (snapshot safety, dataset detection, reflink); `zfs` in `PATH`, typically run as root.
+- **ZFS required for actions** (snapshot safety, dataset detection, reflink); other filesystems can only be scanned. `zfs` in `PATH`, typically run as root.
 - A UTF-8, 256-color terminal.
 
 ## Verify your download

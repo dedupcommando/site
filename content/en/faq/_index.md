@@ -16,7 +16,7 @@ Short answers for ZFS and Proxmox VE administrators, each linked to the manual s
 
 ## Is it safe to use on a production host?
 
-A scan changes nothing on the filesystem, and the Idle profile (one thread, `nice 19`, `ionice idle`), mandatory on live data, keeps it from starving VMs and backups. Duplicates are deleted or relinked only when you apply, and every batch runs under a per-dataset ZFS snapshot, with deleted files moved to a quarantine and each action revalidated first. DedupCommando is still beta software, so rehearse on a test pool, apply in a maintenance window, and keep backups. See [the Idle profile on production data](@/en/manual/03-safety.md#the-idle-profile-on-production-data) and [safety and recovery](@/en/safety-and-recovery/_index.md).
+A scan changes no file contents, and the Idle profile (one thread, `nice 19`, `ionice idle`), which the manual asks for on live data, gives it the lowest CPU and I/O priority. Duplicates are deleted or relinked only when you apply, and every batch runs under a per-dataset ZFS snapshot, with deleted files moved to a quarantine and each action revalidated first. DedupCommando is still beta software, so rehearse on a test pool, apply in a maintenance window, and keep backups. See [the Idle profile on production data](@/en/manual/03-safety.md#the-idle-profile-on-production-data) and [safety and recovery](@/en/safety-and-recovery/_index.md).
 
 ## What happens if a file changes between the scan and the apply?
 
@@ -28,15 +28,15 @@ A hardlink makes the duplicate's path point to the keeper's inode, so owner, per
 
 ## Why does it need root?
 
-Taking ZFS snapshots and scanning outside your home directory need privileges, so dedcom typically runs as root, which is the default on Proxmox VE. As an unprivileged user the snapshots are unavailable unless you set up `zfs allow` or sudo, and without snapshot safety, applying actions is not recommended. The tool may also fail to see your pools when `zfs` runs unprivileged. See [installation](@/en/manual/02-install.md) and [dedcom does not see my pools](@/en/manual/13-troubleshooting.md#dedcom-does-not-see-my-pools).
+Taking ZFS snapshots and scanning outside your home directory need privileges, so dedcom typically runs as root, which is the default on Proxmox VE. As an unprivileged user the snapshots are unavailable unless you set up `zfs allow` or sudo, and a batch whose snapshot cannot be taken is cancelled before any file is changed. The tool may also fail to see your pools when `zfs` runs unprivileged. See [installation](@/en/manual/02-install.md) and [dedcom does not see my pools](@/en/manual/13-troubleshooting.md#dedcom-does-not-see-my-pools).
 
 ## Does it work without ZFS?
 
-Scanning does: on non-ZFS filesystems the walk and hash run fine. There is no snapshot insurance there, so applying actions is not recommended, and a delete is canceled when dedcom cannot determine the file's dataset. Reflink additionally needs ZFS 2.3 or newer with `block_cloning` active. Before applying, check with `df -T <path>` that every root lies entirely on ZFS. See [what DedupCommando does not do](@/en/manual/01-intro.md#what-dedupcommando-does-not-do).
+Scanning does: on non-ZFS filesystems the walk and hash run fine. Actions do not: delete, hardlink and reflink are refused for any file dedcom cannot place on a ZFS dataset, because it acts only where it can take a ZFS snapshot first. Reflink additionally needs OpenZFS 2.2.1 or newer with `zfs_bclone_enabled=1` and the pool's `feature@block_cloning`. Before applying, check with `df -T <path>` that every root lies entirely on ZFS. See [what DedupCommando does not do](@/en/manual/01-intro.md#what-dedupcommando-does-not-do).
 
 ## What was it tested on?
 
-It was developed and tested against ZFS pools including Proxmox VE, and is tested on Proxmox VE 9.1 with OpenZFS 2.3. It runs on Linux x86_64 and aarch64 with kernel 3.15 or newer. The pre-built packages and binaries need glibc 2.39 or newer (Debian 13, Ubuntu 24.04, Proxmox VE 9 or newer), so on Proxmox VE 8 or Debian 12 you build from source. See [requirements](@/en/manual/01-intro.md#requirements) and [installation](@/en/manual/02-install.md#install-from-the-apt-repository-debian--proxmox-ve).
+It was developed and tested against ZFS pools including Proxmox VE, and is tested on Proxmox VE 9.1 with OpenZFS 2.3. It runs on Linux x86_64 and aarch64 with kernel 3.15 or newer. The pre-built packages and binaries need glibc 2.39 or newer (Debian 13, Ubuntu 24.04, Proxmox VE 9 or newer). On Proxmox VE 8 or Debian 12, build natively with a Rust toolchain (1.82+) on that system: a binary from the maintainers' Docker wrapper (`rust:1.95.0` image) needs a newer glibc and will not run there. See [requirements](@/en/manual/01-intro.md#requirements) and [installation](@/en/manual/02-install.md#install-from-the-apt-repository-debian--proxmox-ve).
 
 ## How do I undo a delete?
 
@@ -47,11 +47,11 @@ find /tank/.dedcom-quarantine -type f -name 'photo.jpg'
 mv /tank/.dedcom-quarantine/<ts>/media/photo.jpg /tank/media/photo.jpg
 ```
 
-To undo a whole batch, run `zfs rollback <dataset>@dedcom-<ts>` for each affected dataset, but this reverts the entire dataset, including everything else written since. After `dedcom --purge-quarantine --yes`, the quarantine copy is gone for good. See [bringing back one file](@/en/manual/03-safety.md#want-to-bring-back-one-specific-file-from-quarantine).
+To undo a whole batch, run `zfs rollback <dataset>@dedcom-<ts>` for each affected dataset, but this reverts the entire dataset, including everything else written since. If the dataset has newer snapshots, `zfs rollback` refuses unless given `-r`, which destroys those newer snapshots: list them first with `zfs list -t snapshot <dataset>`. After `dedcom --purge-quarantine --yes`, the quarantine copy is gone for good. See [bringing back one file](@/en/manual/03-safety.md#want-to-bring-back-one-specific-file-from-quarantine).
 
 ## Can I run it from cron, without the UI?
 
-Yes, except for applying: `--scan`, `--stats`, `--compact-db`, `--export-csv` and `--purge-quarantine` run without the TUI, exit non-zero on error and never prompt, so a writing mode just fails if another instance holds the lock. Applying is interactive by design: it happens in the F11 confirmation, where you can also save the plan as a `.sh` script to review or run by hand. For a nightly scan on a live host, set the Idle profile once in the TUI; later `--scan` runs reuse it. See [the cron example](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank) and [why there is no headless apply](@/en/manual/11-headless.md#applying-actions-from-headless--no).
+Yes, except for applying: `--scan`, `--stats`, `--compact-db`, `--export-csv` and `--purge-quarantine` run without the TUI, exit non-zero on error and never prompt, so a writing mode just fails if another instance holds the lock. Applying is interactive by design: it happens in the F11 confirmation, where you can also save the plan as a `.sh` script to review or run by hand. For a nightly scan on a live host, wrap `--scan` in `nice -n 19 ionice -c 3`: every new headless scan runs on the Balanced profile, whatever the TUI last used. See [the cron example](@/en/manual/11-headless.md#cron-example-a-nightly-scan-of-tank) and [why there is no headless apply](@/en/manual/11-headless.md#applying-actions-from-headless--no).
 
 ## How much memory does a big scan need?
 

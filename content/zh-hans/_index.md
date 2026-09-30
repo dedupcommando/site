@@ -32,18 +32,18 @@ DedupCommando 是一个用于 Linux 的终端工具（CLI 与 TUI），用于查
 
 1. **扫描**——遍历所选路径，用 **BLAKE3** 对候选文件做哈希（可选逐字节再比对），并将相同文件分组。扫描可恢复，并有缓存，使重复扫描几乎即时。
 2. **审阅**——在多面板 **commander**（默认）或经典分步向导（`--classic`）中浏览重复分组；为每组标记 keeper 和操作。它还能发现**“孪生文件夹”**：内容完全相同的目录树。
-3. **应用**——审阅计划并交互式应用，或保存为 shell 脚本。**资源调节器**（Turbo / Balanced / Idle）可避免扫描在繁忙主机上抢占 VM 或备份的资源。
+3. **应用**——审阅计划并交互式应用，或保存为 shell 脚本。**资源调节器**（Turbo / Balanced / Idle）：在繁忙主机上，Idle 以单线程、最低的 CPU 与磁盘优先级（`nice 19`、`ionice idle`）扫描。
 
 ## 为 ZFS 而生，可在 Proxmox VE 上运行
 
 DedupCommando 专为 ZFS 设计：快照、数据集边界和 reflink 都以它为基础。它已在 Proxmox VE 9.1（OpenZFS 2.3）上测试，那里 ZFS 开箱即用。这是**文件级**去重——查找并移除重复文件——而非 ZFS 内置的块级去重（`zfs set dedup`），也不是压缩。
 
-> 在非 ZFS 文件系统上，扫描仍可工作，但没有快照保护，因此不建议在那里应用操作。
+> 在非 ZFS 文件系统上，扫描仍可工作，但删除、hardlink 和 reflink 会被拒绝：DedupCommando 只在能先创建 ZFS 快照的地方执行操作。
 
 ## 系统要求
 
-- **Linux**，内核 ≥ 3.15，x86_64 或 aarch64。
-- **强烈推荐 ZFS**（快照保护、数据集检测、reflink）；`PATH` 中需有 `zfs`，通常以 root 运行。
+- **Linux**，内核 ≥ 3.15，x86_64 或 aarch64；预编译包需要 glibc ≥ 2.39（Debian 13、Ubuntu 24.04、Proxmox VE 9）。
+- **执行操作必须有 ZFS**（快照保护、数据集检测、reflink），没有 ZFS 只能扫描；`PATH` 中需有 `zfs`，通常以 root 运行。
 - 一个 UTF-8、256 色的终端。
 
 ## 开始使用
@@ -63,10 +63,10 @@ apt update && apt install dedcom
 
 ```sh
 tar xzf dedcom-<version>-<triple>.tar.gz
-install -m 755 dedcom /usr/local/bin/dedcom
+install -m 755 dedcom-<version>-<triple>/dedcom /usr/local/bin/dedcom
 ```
 
-从源码构建基于 Docker，无需本地 Rust 工具链。
+从源码构建：在 Proxmox VE 8 / Debian 12 等较旧的系统上，请在该系统上用 Rust 工具链（1.82+）原生构建；维护者的 Docker 封装脚本（`rust:1.95.0` 镜像）构建出的二进制文件需要更新的 glibc，在那里无法运行（参见 [CONTRIBUTING](https://github.com/dedupcommando/DedupCommando/blob/main/CONTRIBUTING.md)）。
 
 - [最新发行版](https://github.com/dedupcommando/DedupCommando/releases) · [GitHub 源码](https://github.com/dedupcommando/DedupCommando)
 - 更多细节（英文）：[ZFS 上的重复文件](@/en/zfs-file-deduplication/_index.md) · [Proxmox VE 上](@/en/proxmox-ve-duplicate-files/_index.md) · [Linux 重复文件查找工具](@/en/linux-duplicate-file-finder/_index.md) · [hardlink 与 reflink](@/en/hardlink-vs-reflink/_index.md) · [安全与恢复](@/en/safety-and-recovery/_index.md) · [文档](@/en/_index.md)

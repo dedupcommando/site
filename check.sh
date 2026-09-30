@@ -143,6 +143,42 @@ echo "== promises the program does not keep =="
 if grep -rInE 'byte-for-byte (verify|group verify|✓)|verified byte-for-byte|blake3 \+ (bytewise|побайтов)|побайтовая сверка групп|побайтово ✓|сверены побайтово|Undo is one command|one-command snapshot|одной командой|races by construction|Гонок нет|host won.{1,7}t notice|не заметит|never starves|No dependencies|Без зависимостей|Reclaimed [0-9$]|Освобождено [0-9$]|6[.,]2T used|6\+ (TB|ТБ)' templates content static/assets 2>/dev/null; then
   bad "promise found"; else ok "none"; fi
 
+echo "== hand-written pages: claims corrected for 0.9.2 =="
+# Pages synced from the code repository (content/en/manual/ and every file with `generated = true`)
+# are corrected at their source, so this reads only hand-written pages, templates and assets.
+hand=$(find templates static/assets content -type f ! -path 'content/en/manual/*' \
+         -exec grep -L '^generated = true' {} + 2>/dev/null)
+# Outside ZFS, delete, hardlink and reflink are refused: not "not recommended", in any language.
+corrected='[Aa]pplying[^.]{0,30} (is )?(not|NOT) recommended|ZFS[^.]{0,30}strongly recommended|применять действия[^.]{0,20}не рекомендуется'
+corrected=$corrected'|no se recomienda aplicar|ZFS muy recomendado|pas recommandé d.y appliquer|ZFS fortement recommandé'
+corrected=$corrected'|não é recomendado aplicar|ZFS fortemente recomendado|không khuyến nghị áp dụng|Rất khuyến nghị ZFS'
+corrected=$corrected'|不建议在那里应用操作|强烈推荐 ZFS|لا يُنصح بتطبيق|يُنصح بشدة بـ ZFS|लागू करने की अनुशंसा नहीं|ZFS की पुरज़ोर अनुशंसा'
+# Idle lowers a scan's priority and promises nothing to VMs; every new headless --scan runs on Balanced.
+corrected=$corrected'|starv(e|es|ing)[a-z ]{0,20}(VMs|guests|backups)|runs reuse it|headless scans reuse'
+corrected=$corrected'|Idle( profile)? once in the (TUI|interface)|intensity profile of the last scan configuration'
+# Reflink needs OpenZFS 2.2.1 with zfs_bclone_enabled=1; the documented test platform is Proxmox VE 9.1
+# with OpenZFS 2.3; an IPMI console is not among the documented terminals.
+corrected=$corrected'|ZFS (≥|>=) ?2\.(1|3)([^.0-9]|$)|ZFS 2\.3(\+| or newer| or later)|ZFS[^,;:]{0,20}2\.4\.3'
+corrected=$corrected'|(tested on|обкатано на) 2\.4\.3|IPMI'
+# What 0.9.2 does unlike these pages once said, and numbers that no public document holds.
+corrected=$corrected'|checks only inode, size and times|from the release bundle|creates ./testpool'
+corrected=$corrected'|group without a keeper is left alone|Without a keeper, the actions are ignored'
+corrected=$corrected'|device, inode, size and mtime are unchanged|space returns when you purge|space comes back only when you purge'
+corrected=$corrected'|Summary lists the rollback command|under active writes cannot be deduplicated|cross-dataset hardlink is impossible'
+corrected=$corrected'|stops after the current chunk|(changes?|change) nothing on the filesystem|no file is touched'
+corrected=$corrected'|no local Rust toolchain|ZFS-aware workflows|926\.1 MiB|1285\.7 MiB|over a minute to appear|2\.2 million files'
+# $hand is a newline-separated list of paths without spaces, split on purpose.
+# shellcheck disable=SC2086
+if [ -n "$hand" ] && grep -nIE "$corrected" $hand 2>/dev/null; then
+  bad "a corrected claim is back"; else ok "none"; fi
+
+echo "== release tarball: install from its own directory =="
+# The tarball unpacks into dedcom-<version>-<triple>/ (release.yml), so `install -m 755 dedcom …`
+# run next to it finds no file.
+# shellcheck disable=SC2086
+if [ -n "$hand" ] && grep -nIE 'install -m 755 dedcom /' $hand 2>/dev/null; then
+  bad "install line misses the tarball directory"; else ok "none"; fi
+
 echo "== arabic RTL =="
 if grep -q '<html lang="ar" dir="rtl">' "$PUB/ar/index.html"; then ok "/ar/ dir=rtl"; else bad "/ar/ not rtl"; fi
 

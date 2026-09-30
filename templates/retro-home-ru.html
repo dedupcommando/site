@@ -102,7 +102,7 @@
 
 <main id="desktop" aria-label="Рабочий стол dedcom 95">
 
-  <h1 class="wm">DedupCommando<small>находит одинаковые файлы в Linux и ZFS и безопасно освобождает место · v{{ rel.version }}</small></h1>
+  <h1 class="wm">DedupCommando<small>находит одинаковые файлы в Linux и безопасно освобождает место на ZFS · v{{ rel.version }}</small></h1>
 
   <div id="icons">
     <button class="icon" data-open="demo"><svg class="ic" viewBox="0 0 32 32" aria-hidden="true"><use href="#i-term"/></svg><span>dedcom.exe</span></button>
@@ -134,12 +134,12 @@
 для ZFS-пулов на Proxmox VE.
 
 Находит идентичные файлы, собирает их в группы
-и возвращает терабайты — со снапшотом-страховкой
+и возвращает место — со снапшотом-страховкой
 перед каждым действием.
 
   · один бинарь, без демона, по SSH
   · хеш blake3, перепроверка перед каждым изменением
-  · обкатка на боевом хосте Proxmox VE
+  · проверено на Proxmox VE 9.1 (OpenZFS 2.3)
 
 Двойной щелчок по значкам открывает разделы.</div>
       <div class="btn-row">
@@ -190,7 +190,7 @@
     <div class="win-body">
       <div class="gb-grid">
         <fieldset class="gb"><legend>Двухпанельный TUI</legend>
-          <p>Группы слева, файлы справа, всё с клавиатуры. SSH, tmux, хоть консоль IPMI. Для первого раза — мастер <code>--classic</code>.</p></fieldset>
+          <p>Группы слева, файлы справа, всё с клавиатуры. SSH, tmux, веб-консоль Proxmox. Для первого раза — мастер <code>--classic</code>.</p></fieldset>
         <fieldset class="gb"><legend>Снапшот перед действием</legend>
           <p>ZFS-снапшот создаётся автоматически до удаления, hardlink или reflink. Откат возвращает к этому моменту весь датасет.</p></fieldset>
         <fieldset class="gb"><legend>Сверка, а не вера</legend>
@@ -198,7 +198,7 @@
         <fieldset class="gb"><legend>Атомарно или никак</legend>
           <p>renameat2(RENAME_NOREPLACE) вместо «проверил — потом переименовал»: существующий файл никогда не перезаписывается молча.</p></fieldset>
         <fieldset class="gb"><legend>Профиль Idle</legend>
-          <p>Скан идёт с самым низким приоритетом процессора и дисков (nice 19, ionice idle): виртуалки и бэкапы — первыми.</p></fieldset>
+          <p>Скан идёт с самым низким приоритетом процессора и дисков (nice 19, ionice idle) и просит диск пропускать виртуалки и бэкапы вперёд.</p></fieldset>
         <fieldset class="gb"><legend>Чекпойнты</legend>
           <p>Состояние в dedcom.db: прервали скан — продолжится с того же места.</p></fieldset>
         <fieldset class="gb"><legend>Один бинарь на Rust</legend>
@@ -223,7 +223,7 @@
         <dl>
           <dt>Изделие</dt><dd>dedcom</dd>
           <dt>Тип</dt><dd>TUI-утилита дедупликации</dd>
-          <dt>Платформа</dt><dd>Linux x86-64 / arm64 · OpenZFS ≥ 2.1</dd>
+          <dt>Платформа</dt><dd>Linux x86-64 / arm64 · OpenZFS (проверено: 2.3)</dd>
           <dt>Среда</dt><dd>Proxmox VE (родная)</dd>
           <dt>Хеш</dt><dd>blake3 (байт в байт — <code>--verify</code>)</dd>
           <dt>Статус</dt><dd>v{{ rel.version }} (бета) · {{ rel.date | truncate(length=4, end="") }}</dd>
@@ -245,17 +245,17 @@
       <p class="muted" style="margin-bottom:10px">Протокол безопасности встроен и не отключается —
         поэтому флажки серые:</p>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Снапшот-страховка</b>
-        <p>ZFS-снапшот автоматически перед каждым действием. Секунды на боевом пуле — и спасённые терабайты.</p></div>
+        <p>ZFS-снапшот автоматически перед каждым действием. Он хранит прежние данные, пока вы его не удалите.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Повторная сверка</b>
         <p>Прямо перед действием — ре-хеш. Расхождение — стоп, группа на пересмотр.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Атомарные операции</b>
-        <p>renameat2(RENAME_NOREPLACE): состояние гонки исключено самим системным вызовом.</p></div>
+        <p>renameat2(RENAME_NOREPLACE): между проверкой имени цели и переименованием нет окна.</p></div>
       <div class="chk"><span class="box" aria-hidden="true">✓</span><b>Карантин вместо пропасти</b>
         <p>«Удаление» переносит файлы в карантин. Вернуть можно точечно, без отката снапшота.</p></div>
       <div class="warn"><span class="wi" aria-hidden="true">⚠</span>
         <span>На ZFS деструктивная партия не запускается без снапшота: если снапшот не создался,
         партия отменяется. Это инвариант в коде, а не настройка. Без ZFS снапшота нет,
-        поэтому применять действия там не рекомендуется.</span></div>
+        поэтому удаление, hardlink и reflink там не выполняются.</span></div>
       <div class="btn-row"><button class="b95" data-close>OK</button></div>
     </div>
   </section>
@@ -275,9 +275,9 @@
           <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
           <tbody>
             <tr><td>ОС</td><td>Linux x86-64 или arm64, glibc ≥ 2.39</td></tr>
-            <tr><td>ФС</td><td>OpenZFS ≥ 2.1 (обкатано на 2.4.3)</td></tr>
+            <tr><td>ФС</td><td>OpenZFS (проверено на 2.3, Proxmox VE 9.1)</td></tr>
             <tr><td>Среда</td><td>Proxmox VE; подойдёт любой хост с ZFS</td></tr>
-            <tr><td>Терминал</td><td>любой с 256 цветами, по SSH и в tmux</td></tr>
+            <tr><td>Терминал</td><td>любой с UTF-8 и 256 цветами, по SSH и в tmux</td></tr>
             <tr><td>Доступ</td><td>root на хосте пула</td></tr>
           </tbody>
         </table>
@@ -295,13 +295,10 @@
 <span class="kw">dedcom</span> --classic            <span class="cm"># пошаговый мастер для первого раза</span></pre>
       </div>
 
-      <div class="sunken">
-        <div class="lst-bar"><span>Листинг 2 — сначала репетиция</span>
-          <button class="b95 copy" data-copy="#r-inst-b">копировать</button></div>
-        <pre class="lst" id="r-inst-b"><span class="cm"># одноразовый loopback-пул с дубликатами: полигон без риска</span>
-<span class="kw">./scripts/make-test-pool.sh</span>
-<span class="kw">dedcom</span>                      <span class="cm"># потренируйтесь, потом на боевой</span></pre>
-      </div>
+      <p class="muted">Сначала репетиция на одноразовом пуле:
+        <a href="https://github.com/dedupcommando/DedupCommando/blob/{{ rel.tag }}/scripts/make-test-pool.sh" target="_blank" rel="noopener">scripts/make-test-pool.sh</a>
+        из репозитория исходников создаёт его на файле-образе. Нужны <code>DEDCOM_E2E_ROOT</code> и
+        <code>DEDCOM_E2E_OWNER_UID</code>, см. шапку скрипта.</p>
 
       <p class="muted" style="margin-top:10px">Другие Linux с glibc 2.39 и новее: скачайте
         <a href="https://github.com/dedupcommando/DedupCommando/releases" target="_blank" rel="noopener">релиз на GitHub</a>,
@@ -330,13 +327,13 @@
       <details>
         <summary>Hardlink? А что с клонированием блоков?</summary>
         <p>Классический режим — hardlink. Где OpenZFS умеет block cloning, доступен reflink —
-          файлы независимы, но делят блоки. Результат проверяется по фактическому размещению
-          данных, а не по косвенным счётчикам.</p>
+          файлы независимы, но делят блоки. Общие блоки доказывает E2E-тест проекта по адресам
+          блоков (zdb), а не счётчики пула.</p>
       </details>
       <details>
         <summary>Почему TUI, а не веб-интерфейс?</summary>
         <p>Лишний демон и порт на хранилище — минус к безопасности. SSH уже есть; dedcom рисует
-          интерфейс в любом терминале. Для скриптов — headless: --scan, --stats, --export-csv.</p>
+          интерфейс в любом терминале с UTF-8 и 256 цветами. Для скриптов — headless: --scan, --stats, --export-csv.</p>
       </details>
       <details>
         <summary>Скан на терабайтах прервался — всё заново?</summary>
