@@ -55,16 +55,20 @@ DESCRIPTION_OVERRIDES: dict[str, str] = {
 }
 
 # Headings of a released manual with a raw <placeholder>, which GitHub and the site would both swallow as HTML.
-# The source is fixed in the next release; until then the site escapes exactly these lines at exactly this tag.
+# The source is fixed in the next release; until then the site escapes exactly these lines at exactly this tag,
+# or at exactly this commit when upstream.lock pins a docs-only commit after the tag (no tag field then).
 # A listed line that is no longer found fails the sync, so the list cannot go stale unnoticed.
+_V092_ESCAPES = {
+    "docs/manual/13-troubleshooting.md": (
+        '### "the group <hash> has files marked for an action and no keeper — choose the file to keep"',
+        '### "cannot reflink on pool <pool> (N marks) — its block_cloning feature is disabled; '
+        'mark HARDLINK or DELETE, or unmark; first: …"',
+    ),
+}
 RAW_TAG_ESCAPES: dict[str, dict[str, tuple[str, ...]]] = {
-    "v0.9.2": {
-        "docs/manual/13-troubleshooting.md": (
-            '### "the group <hash> has files marked for an action and no keeper — choose the file to keep"',
-            '### "cannot reflink on pool <pool> (N marks) — its block_cloning feature is disabled; '
-            'mark HARDLINK or DELETE, or unmark; first: …"',
-        ),
-    },
+    "v0.9.2": _V092_ESCAPES,
+    # v0.9.2 plus two docs-only commits (README links, then the manual matched to the code)
+    "d890b4728bdd35a074c7e62fa0c2e1d6133dce7b": _V092_ESCAPES,
 }
 
 SITE_DOCS = {
@@ -263,7 +267,7 @@ def split_h1(text: str, src: str) -> tuple[str, list[str]]:
 def transform(body: list[str], doc: Doc, docs: dict[str, Doc], up: Upstream, problems: list[str]) -> str:
     out: list[str] = []
     seen: dict[str, int] = {}
-    escapes = set(RAW_TAG_ESCAPES.get(up.tag or "", {}).get(doc.src, ()))
+    escapes = set(RAW_TAG_ESCAPES.get(up.tag or up.sha, {}).get(doc.src, ()))
     escaped: set[str] = set()
 
     def rewrite(m: re.Match) -> str:
@@ -313,7 +317,7 @@ def transform(body: list[str], doc: Doc, docs: dict[str, Doc], up: Upstream, pro
             continue
         out.append(LINK_RE.sub(rewrite, line))
     for line in sorted(escapes - escaped):
-        problems.append(f"{doc.src}: RAW_TAG_ESCAPES line not found at {up.tag}: {line[:80]}")
+        problems.append(f"{doc.src}: RAW_TAG_ESCAPES line not found at {up.tag or up.sha[:7]}: {line[:80]}")
     for tag, where in raw_tags(["" if line in escaped else line for line in body]):
         problems.append(f"{doc.src}: raw <{tag}> outside code would be swallowed as HTML: {where}")
     return "\n".join(out).strip("\n") + "\n"

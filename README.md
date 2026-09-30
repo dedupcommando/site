@@ -40,3 +40,7 @@ zola build && sh check.sh --no-build
 
 Put the new release's commit and tag into `upstream.lock` (`<commit> <tag>`, one line) and push.
 CI republishes the manual and adds the release notes.
+
+A docs-only fix published after a release can be pinned by its commit alone (`<commit>`, no tag), once
+that commit is on `main` of the code repository. If the release has entries in `RAW_TAG_ESCAPES`
+(`scripts/sync_docs.py`), add the same entries under that commit, or the sync fails.
