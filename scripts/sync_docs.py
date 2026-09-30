@@ -2,7 +2,8 @@
 """Generate the site's manual, safety, verification and release-notes pages from the code repository.
 
 The texts are edited only in dedupcommando/DedupCommando. This script reads them at one pinned commit
-(`upstream.lock`), rewrites their links for the site, and writes Zola content plus two small data files.
+(`upstream.lock`), rewrites their links for the site, and writes Zola content, two small data files and the
+pictures the texts link to (`static/assets/manual/`).
 Nothing it writes is committed (see .gitignore); rerun it before every build.
 
     python scripts/sync_docs.py --repo <checkout of the code repo> [--ref <commit>] [--tag <tag>] [--out <site>]
@@ -67,9 +68,16 @@ _V092_ESCAPES = {
 }
 RAW_TAG_ESCAPES: dict[str, dict[str, tuple[str, ...]]] = {
     "v0.9.2": _V092_ESCAPES,
-    # v0.9.2 plus two docs-only commits (README links, then the manual matched to the code)
+    # v0.9.2 plus docs-only commits: the manual matched to the code, then the scan GIF and the build note
     "d890b4728bdd35a074c7e62fa0c2e1d6133dce7b": _V092_ESCAPES,
+    "a5e6c627f6b71b2663e9ae0db644111d66f268c1": _V092_ESCAPES,
 }
+
+# Pictures a published text links to are copied from the pinned commit into the site, flat, into one folder;
+# the site never loads them from GitHub. SVG is left out on purpose: it can carry scripts.
+IMAGE_EXTS = {".gif", ".png", ".jpg", ".jpeg", ".webp"}
+IMAGE_DIR = ("static", "assets", "manual")
+IMAGE_URL = "/assets/manual"
 
 SITE_DOCS = {
     "docs/SAFETY.md": ("@/en/safety-model.md", "safety-model", 10,
@@ -224,6 +232,12 @@ class Upstream:
     def text(self, path: str) -> str:
         return git(self.repo, "show", f"{self.sha}:{path}")
 
+    def blob(self, path: str) -> bytes:
+        out = subprocess.run(["git", "-C", self.repo, "show", f"{self.sha}:{path}"], capture_output=True)
+        if out.returncode != 0:
+            raise SyncError(f"git show {path}: {out.stderr.decode('utf-8', 'replace').strip()}")
+        return out.stdout
+
     def date(self, path: str) -> str:
         return git(self.repo, "log", "-1", "--format=%cs", self.sha, "--", path).strip()
 
@@ -264,17 +278,31 @@ def split_h1(text: str, src: str) -> tuple[str, list[str]]:
     raise SyncError(f"{src}: empty file")
 
 
-def transform(body: list[str], doc: Doc, docs: dict[str, Doc], up: Upstream, problems: list[str]) -> str:
+def transform(body: list[str], doc: Doc, docs: dict[str, Doc], up: Upstream, problems: list[str],
+              images: dict[str, str]) -> str:
     out: list[str] = []
     seen: dict[str, int] = {}
     escapes = set(RAW_TAG_ESCAPES.get(up.tag or up.sha, {}).get(doc.src, ()))
     escaped: set[str] = set()
 
+    def image(label: str, target: str) -> str:
+        """A picture of the repository, published under IMAGE_URL; `images` maps its file name to its path."""
+        if SCHEME_RE.match(target) or target.startswith("//"):
+            problems.append(f"{doc.src}: image {target!r} is on another host — the site serves only its own files")
+            return f"![{label}]({target})"
+        repo_path = posixpath.normpath(posixpath.join(posixpath.dirname(doc.src), target.partition("#")[0]))
+        name = posixpath.basename(repo_path)
+        if up.tree.get(repo_path) != "blob" or posixpath.splitext(name)[1].lower() not in IMAGE_EXTS:
+            problems.append(f"{doc.src}: image {target!r} is not an image file at {up.sha[:7]}")
+            return f"![{label}]({target})"
+        if images.setdefault(name, repo_path) != repo_path:
+            problems.append(f"{doc.src}: two images named {name}: {images[name]} and {repo_path}")
+        return f"![{label}]({IMAGE_URL}/{name})"
+
     def rewrite(m: re.Match) -> str:
         bang, label, target = m.groups()
         if bang:
-            problems.append(f"{doc.src}: image {target!r} — images are not published yet")
-            return m.group(0)
+            return image(label, target)
         if SCHEME_RE.match(target) or target.startswith("//"):
             return m.group(0)
         path, _, frag = target.partition("#")
@@ -386,21 +414,26 @@ def main() -> int:
         d.link_title = SITE_DOCS[d.src][4] if d.src in SITE_DOCS else re.sub(r"^\d\d\.\s+", "", h1).replace("`", "")
 
     problems: list[str] = []
+    images: dict[str, str] = {}
     rendered: dict[str, tuple[str, str, list[str]]] = {}
     for src, d in docs.items():
         h1, body = split_h1(d.text, src)
-        rendered[src] = (h1, transform(body, d, docs, up, problems), body)
+        rendered[src] = (h1, transform(body, d, docs, up, problems, images), body)
     if problems:
         for p in problems:
             print(f"sync_docs: {p}", file=sys.stderr)
         return 1
 
-    # Start from a clean slate so a chapter removed upstream disappears from the site too.
-    for stale in (manual_dir, changelog_dir):
+    # Start from a clean slate so a chapter or picture removed upstream disappears from the site too.
+    image_dir = site.joinpath(*IMAGE_DIR)
+    for stale in (manual_dir, changelog_dir, image_dir):
         if stale.exists():
             shutil.rmtree(stale)
     manual_dir.mkdir(parents=True)
     changelog_dir.mkdir(parents=True)
+    image_dir.mkdir(parents=True)
+    for name, repo_path in sorted(images.items()):
+        (image_dir / name).write_bytes(up.blob(repo_path))
     (site / "data").mkdir(exist_ok=True)
 
     def write(d: Doc, fm: str, body: str) -> None:
@@ -484,8 +517,8 @@ def main() -> int:
                    {"path": "/en/changelog/", "lastmod": latest["date"]}], f, indent=2)
         f.write("\n")
 
-    print(f"sync_docs: {len(chapters)} chapters, {len(SITE_DOCS)} docs, {len(notes)} release notes "
-          f"from {up.url_ref} ({up.sha[:7]}); latest release {latest['tag']} {latest['date']}")
+    print(f"sync_docs: {len(chapters)} chapters, {len(SITE_DOCS)} docs, {len(notes)} release notes, "
+          f"{len(images)} images from {up.url_ref} ({up.sha[:7]}); latest release {latest['tag']} {latest['date']}")
     return 0
 
 

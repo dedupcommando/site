@@ -12,7 +12,7 @@ The program itself lives in [dedupcommando/DedupCommando](https://github.com/ded
 | `content/<lang>/_index.md` | Home pages in Arabic, Vietnamese, Spanish, Chinese, Portuguese, French and Hindi. |
 | `content/en/_index.md` | The English documentation hub at `/en/` (`/en/docs/` redirects here). |
 | `content/en/<topic>/_index.md` | English guides. |
-| `scripts/sync_docs.py` | Generates the manual (`/en/manual/`), the safety and verification pages and the release notes (`/en/changelog/`) from the code repository at the commit pinned in `upstream.lock`. The generated files are never committed: edit the manual in the code repository. |
+| `scripts/sync_docs.py` | Generates the manual (`/en/manual/`), the safety and verification pages and the release notes (`/en/changelog/`) from the code repository at the commit pinned in `upstream.lock`, and copies the pictures they show into `static/assets/manual/` (the site never loads them from GitHub). The generated files are never committed: edit the manual in the code repository. |
 | `scripts/lastmod.py` | Dates every section for the sitemap. |
 | `templates/base.html` | Head tags for every page: canonical, hreflang, Open Graph, structured data. |
 | `check.sh` | The gate that runs after every build, locally and in CI. |

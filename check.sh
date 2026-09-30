@@ -179,6 +179,21 @@ echo "== release tarball: install from its own directory =="
 if [ -n "$hand" ] && grep -nIE 'install -m 755 dedcom /' $hand 2>/dev/null; then
   bad "install line misses the tarball directory"; else ok "none"; fi
 
+echo "== pictures: every <img> is published by the site itself =="
+# The manual's pictures are copied from the code repository by scripts/sync_docs.py; a page that shows one
+# (or anything else) must find it in public/, never on another host.
+imgs=$(grep -rhoE '<img [^>]*src="[^"]+"' "$PUB" --include='*.html' 2>/dev/null | sed -E 's/.*src="([^"]+)".*/\1/' | sort -u)
+missing=""; foreign=""
+for s in $imgs; do
+  case "$s" in
+    "$BASE"/*) p=${s#"$BASE"}; p=${p%%[?#]*}; [ -f "$PUB$p" ] || missing="$missing $s" ;;
+    http://*|https://*|//*) foreign="$foreign $s" ;;
+    /*) p=${s%%[?#]*}; [ -f "$PUB$p" ] || missing="$missing $s" ;;
+  esac
+done
+if [ -n "$foreign" ]; then bad "pictures from another host:$foreign"; else ok "no pictures from another host"; fi
+if [ -n "$missing" ]; then bad "pictures not published:$missing"; else ok "every picture is published"; fi
+
 echo "== arabic RTL =="
 if grep -q '<html lang="ar" dir="rtl">' "$PUB/ar/index.html"; then ok "/ar/ dir=rtl"; else bad "/ar/ not rtl"; fi
 
